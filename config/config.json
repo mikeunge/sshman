@@ -1,0 +1,4 @@
+{
+  "databasepath": "~/.local/share/sshman/ssh.db",
+  "logpath": "~/.local/share/sshman/sshman.log"
+}
