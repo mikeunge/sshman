@@ -2,29 +2,66 @@ package database
 
 import (
 	"database/sql"
-	"fmt"
+	"time"
 
 	"github.com/mikeunge/sshman/pkg/helpers"
 )
 
-type IDatabase struct {
-	Path       string
-	Connection *sql.DB
+type DB struct {
+	Path string
+	db   *sql.DB
 }
 
-type Databse interface {
-	Connect() error
-	initDatabase() error
+// Create an enum (SSHProfileType) because go doesn't provide it by default...
+type SSHProfileType int
+
+// SSH (enum-) types
+const (
+	Password   SSHProfileType = 0
+	PrivateKey SSHProfileType = 1
+)
+
+// SSH profile model
+type SSHProfile struct {
+	Host       string
+	User       string
+	Password   string
+	PrivateKey []byte
+	Type       SSHProfileType
 }
 
-func (db IDatabase) Connect() error {
-	if !helpers.PathExists(db.Path) {
-		// TODO: log that db does not exist and we are creating a new one
-		fmt.Println("Creating database")
-		if err := db.initDatabase(); err != nil {
+// SSH profile database model
+type DBSSHProfile struct {
+	Id    int
+	CTime time.Time
+	MTime time.Time
+	SSHProfile
+}
+
+func (d *DB) Connect() error {
+	var err error
+	var initDb = false
+
+	if !helpers.PathExists(d.Path) {
+		initDb = true
+	}
+
+	if d.db, err = sql.Open("sqlite3", d.Path); err != nil {
+		return err
+	}
+
+	if initDb {
+		if err := d.initDatabase(); err != nil {
 			return err
 		}
 	}
 
+	return nil
+}
+
+func (d *DB) Disconnect() error {
+	if d.db != nil {
+		return d.db.Close()
+	}
 	return nil
 }

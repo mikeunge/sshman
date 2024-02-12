@@ -20,7 +20,7 @@ build: clean
 	$(CC) build -o $(BINS) $(SRC)
 
 run:
-	$(CC) run $(SRC) --help
+	$(CC) run $(SRC) --about
 
 install: build 
 	sudo cp -v $(BINS) $(INST)

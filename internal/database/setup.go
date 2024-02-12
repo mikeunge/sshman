@@ -8,22 +8,26 @@ import (
 
 const (
 	QueryCreateTable = `
-  CREATE TABLE IF NOT EXISTS connections (
+  CREATE TABLE IF NOT EXISTS SSH_Profile (
     id INTEGER NOT NULL PRIMARY KEY,
-    description TEXT,
+    host TEXT NOT NULL,
+    user TEXT NOT NULL,
+    password TEXT,
+    privateKey BLOB,
+    type INTEGER NOT NULL,
     ctime DATETIME DEFAULT CURRENT_TIMESTAMP,
     mtime DATETIME DEFAULT CURRENT_TIMESTAMP
   );`
 )
 
-func (db IDatabase) initDatabase() error {
+func (d *DB) initDatabase() error {
 	var err error
-	db.Connection, err = sql.Open("sqlite3", db.Path)
+	d.db, err = sql.Open("sqlite3", d.Path)
 	if err != nil {
 		return err
 	}
 
-	if _, err := db.Connection.Exec(QueryCreateTable); err != nil {
+	if _, err := d.db.Exec(QueryCreateTable); err != nil {
 		return err
 	}
 	return nil
