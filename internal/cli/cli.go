@@ -6,6 +6,7 @@ import (
 
 	"github.com/akamensky/argparse"
 	"github.com/pterm/pterm"
+	"github.com/pterm/pterm/putils"
 )
 
 type AppInfo struct {
@@ -32,7 +33,9 @@ func Cli(app *AppInfo) error {
 	}
 
 	if *argAbout {
-		pterm.DefaultBasicText.Printf("%s - v%s\n%s\n\nAuthor: %s\nGithub Repository: %s\n", app.Name, app.Version, app.Description, app.Author, app.Github)
+		s, _ := pterm.DefaultBigText.WithLetters(putils.LettersFromString(app.Name)).Srender()
+		pterm.DefaultCenter.Println(s)
+		pterm.DefaultCenter.WithCenterEachLineSeparately().Printf("%s - v%s\n%s\n\nAuthor: %s\nRepository: %s\n", app.Name, app.Version, app.Description, app.Author, app.Github)
 		os.Exit(0)
 	}
 

@@ -14,7 +14,7 @@ import (
 var appInfo = cli.AppInfo{
 	Name:        "sshman",
 	Description: "Easy ssh connection management.",
-	Version:     "1.0.0",
+	Version:     "1.0.2",
 	Author:      "@mikeunge",
 	Github:      "https://mikeunge/sshman",
 }
@@ -34,12 +34,37 @@ func main() {
 		os.Exit(1)
 	}
 
-	db := database.IDatabase{Path: config.DatabasePath}
+	db := &database.DB{Path: config.DatabasePath}
 	if err := db.Connect(); err != nil {
 		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
 		os.Exit(1)
 	}
 
+	p, err := db.GetSSHProfileById(3)
+	if err != nil {
+		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
+		os.Exit(1)
+	}
+	pterm.DefaultBasicText.Printf("%+v\n", p.User)
+
+	p.User = "ABC"
+	err = db.UpdateSSHProfileById(3, p)
+	if err != nil {
+		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
+		os.Exit(1)
+	}
+
+	x, err := db.GetSSHProfileById(3)
+	if err != nil {
+		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
+		os.Exit(1)
+	}
+	pterm.DefaultBasicText.Printf("%+v\n", x.User)
+
+	if err = db.Disconnect(); err != nil {
+		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
+		os.Exit(1)
+	}
 }
 
 func connectToSSH() {
