@@ -6,7 +6,6 @@ import (
 	"github.com/mikeunge/sshman/internal/cli"
 	"github.com/mikeunge/sshman/internal/database"
 	"github.com/mikeunge/sshman/pkg/config"
-	"github.com/mikeunge/sshman/pkg/helpers"
 	"github.com/mikeunge/sshman/pkg/ssh"
 
 	"github.com/pterm/pterm"
@@ -15,7 +14,7 @@ import (
 var appInfo = cli.AppInfo{
 	Name:        "sshman",
 	Description: "Easy ssh connection management.",
-	Version:     "1.0.1",
+	Version:     "1.0.2",
 	Author:      "@mikeunge",
 	Github:      "https://mikeunge/sshman",
 }
@@ -41,26 +40,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	pk, err := helpers.ReadFile("/home/mike/keypairs/keypair-en1-t-jumpbox.pem")
+	p, err := db.GetSSHProfileById(3)
+	if err != nil {
+		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
+		os.Exit(1)
+	}
+	pterm.DefaultBasicText.Printf("%+v\n", p.User)
+
+	p.User = "ABC"
+	err = db.UpdateSSHProfileById(3, p)
 	if err != nil {
 		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
 		os.Exit(1)
 	}
 
-	profile := database.SSHProfile{Host: "jumpbox.test.hokify.com", User: "ubuntu", PrivateKey: pk, Type: database.PrivateKey}
-	id, err := db.CreateSSHProfile(profile)
+	x, err := db.GetSSHProfileById(3)
 	if err != nil {
 		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
 		os.Exit(1)
 	}
-	pterm.DefaultBasicText.Printf(pterm.Green("Created: ")+"ID: %d\n", id)
-
-	p, err := db.GetSSHProfileById(id)
-	if err != nil {
-		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
-		os.Exit(1)
-	}
-	pterm.DefaultBasicText.Printf("%+v\n", p)
+	pterm.DefaultBasicText.Printf("%+v\n", x.User)
 
 	if err = db.Disconnect(); err != nil {
 		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)

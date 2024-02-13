@@ -4,8 +4,8 @@ import (
 	"database/sql"
 )
 
-func (d *DB) CreateSSHProfile(model SSHProfile) (int, error) {
-	res, err := d.db.Exec("INSERT INTO SSH_Profile (host, user, password, privateKey, type) VALUES(?, ?, ?, ?, ?);", model.Host, model.User, model.Password, model.PrivateKey, model.Type)
+func (d *DB) CreateSSHProfile(profile SSHProfile) (int, error) {
+	res, err := d.db.Exec("INSERT INTO SSH_Profile (host, user, password, privateKey, type) VALUES(?, ?, ?, ?, ?);", profile.Host, profile.User, profile.Password, profile.PrivateKey, profile.Type)
 	if err != nil {
 		return 0, err
 	}
@@ -17,24 +17,60 @@ func (d *DB) CreateSSHProfile(model SSHProfile) (int, error) {
 	return int(id), nil
 }
 
-func (d *DB) GetSSHProfileById(id int) (DBSSHProfile, error) {
+func (d *DB) GetSSHProfileById(id int) (SSHProfile, error) {
+	var profile SSHProfile
+
 	row := d.db.QueryRow("SELECT * FROM SSH_Profile WHERE id=?;", id)
-	sshProfile := DBSSHProfile{}
-	var err error
-	if err = row.Scan(&sshProfile.Id, &sshProfile.Host, &sshProfile.User, &sshProfile.Password, &sshProfile.PrivateKey, &sshProfile.Type, &sshProfile.CTime, &sshProfile.MTime); err == sql.ErrNoRows {
-		return DBSSHProfile{}, err
+	if err := row.Scan(&profile.Id, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.Type, profile.CTime, &profile.MTime); err == sql.ErrNoRows {
+		return SSHProfile{}, err
 	}
-	return sshProfile, err
+	return profile, nil
 }
 
 func (d *DB) GetAllSSHProfiles() ([]SSHProfile, error) {
-	return []SSHProfile{}, nil
+	var profiles []SSHProfile
+
+	rows, err := d.db.Query("SELECT * FROM SSH_Profile;")
+	if err != nil {
+		return profiles, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var profile SSHProfile
+		if err = rows.Scan(&profile.Id, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.Type, &profile.CTime, &profile.MTime); err == sql.ErrNoRows {
+			return profiles, err
+		}
+		profiles = append(profiles, profile)
+	}
+
+	if err = rows.Err(); err != nil {
+		return profiles, err
+	}
+	return profiles, nil
 }
 
-func (d *DB) UpdateSSHProfileById(id int) error {
+func (d *DB) UpdateSSHProfileById(id int, updatedProfile SSHProfile) error {
+	var auth string
+	var query string
+
+	if updatedProfile.Type == TypePrivateKey {
+		auth = string(updatedProfile.PrivateKey)
+		query = "UPDATE SSH_Profile SET host=?, user=?, privateKey=? WHERE id=?;"
+	} else {
+		auth = updatedProfile.Password
+		query = "UPDATE SSH_Profile SET host=?, user=?, password=? WHERE id=?;"
+	}
+
+	if _, err := d.db.Exec(query, updatedProfile.Host, updatedProfile.User, auth, id); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (d *DB) DeleteSSHProfileById(id int) error {
+	if _, err := d.db.Exec("DELETE FROM SSH_Profile WHERE id=?;", id); err != nil {
+		return err
+	}
 	return nil
 }

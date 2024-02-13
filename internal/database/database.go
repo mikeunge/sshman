@@ -17,25 +17,20 @@ type SSHProfileType int
 
 // SSH (enum-) types
 const (
-	Password   SSHProfileType = 0
-	PrivateKey SSHProfileType = 1
+	TypePassword   SSHProfileType = 0
+	TypePrivateKey SSHProfileType = 1
 )
 
 // SSH profile model
 type SSHProfile struct {
+	Id         int
 	Host       string
 	User       string
 	Password   string
 	PrivateKey []byte
 	Type       SSHProfileType
-}
-
-// SSH profile database model
-type DBSSHProfile struct {
-	Id    int
-	CTime time.Time
-	MTime time.Time
-	SSHProfile
+	CTime      time.Time
+	MTime      time.Time
 }
 
 func (d *DB) Connect() error {
