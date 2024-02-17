@@ -5,8 +5,9 @@ import (
 
 	"github.com/mikeunge/sshman/internal/cli"
 	"github.com/mikeunge/sshman/internal/database"
+	"github.com/mikeunge/sshman/internal/profiles"
 	"github.com/mikeunge/sshman/pkg/config"
-	"github.com/mikeunge/sshman/pkg/ssh"
+	"github.com/mikeunge/sshman/pkg/themes"
 
 	"github.com/pterm/pterm"
 )
@@ -14,9 +15,9 @@ import (
 var appInfo = cli.AppInfo{
 	Name:        "sshman",
 	Description: "Easy ssh connection management.",
-	Version:     "1.0.2",
+	Version:     "1.0.3",
 	Author:      "@mikeunge",
-	Github:      "https://mikeunge/sshman",
+	Github:      "https://github.com/mikeunge/sshman",
 }
 
 const (
@@ -24,56 +25,74 @@ const (
 )
 
 func main() {
-	if err := cli.Cli(&appInfo); err != nil {
-		panic(1)
-	}
+	var cmds cli.Commands
+	var err error
+
+	cmds, err = cli.Cli(&appInfo)
+	handleErrorAndCloseGracefully(err, 1, nil)
 
 	config, err := config.Parse(defaultConfigPath)
-	if err != nil {
-		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
-		os.Exit(1)
-	}
+	handleErrorAndCloseGracefully(err, 1, nil)
 
 	db := &database.DB{Path: config.DatabasePath}
-	if err := db.Connect(); err != nil {
-		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
-		os.Exit(1)
+	err = db.Connect()
+	handleErrorAndCloseGracefully(err, 1, db)
+
+	profileService := profiles.ProfileService{DB: db}
+	if _, ok := cmds["list"]; ok {
+		err := profileService.PrintProfilesList()
+		handleErrorAndCloseGracefully(err, 1, db)
+		os.Exit(0)
 	}
 
-	p, err := db.GetSSHProfileById(3)
-	if err != nil {
-		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
-		os.Exit(1)
-	}
-	pterm.DefaultBasicText.Printf("%+v\n", p.User)
+	if _, ok := cmds["connect"]; ok {
+		var pId int64
 
-	p.User = "ABC"
-	err = db.UpdateSSHProfileById(3, p)
-	if err != nil {
-		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
-		os.Exit(1)
+		profileId := cmds["connect"]
+		if pId, ok = profileId.(int64); !ok {
+			handleErrorAndCloseGracefully(err, 1, db)
+		}
+
+		err := profileService.ConnectToSHHWithProfile(pId)
+		handleErrorAndCloseGracefully(err, 1, db)
+		os.Exit(0)
 	}
 
-	x, err := db.GetSSHProfileById(3)
-	if err != nil {
-		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
-		os.Exit(1)
-	}
-	pterm.DefaultBasicText.Printf("%+v\n", x.User)
+	if _, ok := cmds["new"]; ok {
+		user, _ := themes.CustomTextInput("User", ":").Show()
+		host, _ := themes.CustomTextInput("Host", ":").Show()
 
-	if err = db.Disconnect(); err != nil {
-		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
-		os.Exit(1)
+		var authType database.SSHProfileAuthType
+		if authType, ok = cmds["type"].(database.SSHProfileAuthType); !ok {
+			handleErrorAndCloseGracefully(err, 1, db)
+		}
+
+		var auth string
+		if authType == database.AuthTypePassword {
+			auth, _ = themes.CustomTextInput("Password", ":").Show()
+		} else {
+			auth, _ = themes.CustomTextInput("Path to keyfile", ":").Show()
+		}
+
+		pterm.Println()
+		pterm.Info.Printfln("You answered: %s, %s, %s", user, host, auth)
+
+		os.Exit(0)
 	}
+
+	os.Exit(0)
 }
 
-func connectToSSH() {
-	keyfile := "path/to/keyfile"
-	// TODO: make sure secure connection (with known_hosts) works
-	sshServerConfig := ssh.SSHServerConfig{User: "user", Host: "127.0.0.1", SecureConnection: false}
+// Handle errors & gracefully disconnect from database
+func handleErrorAndCloseGracefully(err error, exitCode int, db *database.DB) {
+	if err != nil {
+		if db != nil {
+			if e := db.Disconnect(); e != nil {
+				pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", e)
+			}
+		}
 
-	if err := ssh.ConnectSSHServerWithPrivateKey(keyfile, "", sshServerConfig); err != nil {
 		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
-		os.Exit(1)
+		os.Exit(exitCode)
 	}
 }

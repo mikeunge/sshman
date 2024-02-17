@@ -4,9 +4,11 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -89,4 +91,39 @@ func ReadFile(path string) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+func ValidateInputLength(input string, minLen, maxLen int) bool {
+	if len(input) < minLen || len(input) > maxLen {
+		return false
+	}
+	return true
+}
+
+func IsValidIpv4(host string) bool {
+	// NOTE: thanks to: https://gist.github.com/JayGoldberg/4a2a0d159342e53434f2785d7c9cbec5
+	parts := strings.Split(host, ".")
+
+	if len(parts) < 4 {
+		return false
+	}
+
+	for _, x := range parts {
+		if i, err := strconv.Atoi(x); err == nil {
+			if i < 0 || i > 255 {
+				return false
+			}
+		} else {
+			return false
+		}
+	}
+
+	return true
+}
+
+func IsValidUrl(uri string) bool {
+	if _, err := url.ParseRequestURI(uri); err != nil {
+		return false
+	}
+	return true
 }
