@@ -4,11 +4,11 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -100,24 +100,10 @@ func ValidateInputLength(input string, minLen, maxLen int) bool {
 	return true
 }
 
-func IsValidIpv4(host string) bool {
-	// NOTE: thanks to: https://gist.github.com/JayGoldberg/4a2a0d159342e53434f2785d7c9cbec5
-	parts := strings.Split(host, ".")
-
-	if len(parts) < 4 {
+func IsValidIp(host string) bool {
+	if ip := net.ParseIP(host); ip == nil {
 		return false
 	}
-
-	for _, x := range parts {
-		if i, err := strconv.Atoi(x); err == nil {
-			if i < 0 || i > 255 {
-				return false
-			}
-		} else {
-			return false
-		}
-	}
-
 	return true
 }
 

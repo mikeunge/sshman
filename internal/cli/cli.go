@@ -29,7 +29,7 @@ func Cli(app *AppInfo) (Commands, error) {
 	argAbout := parser.Flag("", "about", &argparse.Options{Required: false, Help: "Print information about the app."})
 	argList := parser.Flag("l", "list", &argparse.Options{Required: false, Help: "List of all available SSH connections."})
 	argConnect := parser.Int("c", "connect", &argparse.Options{Required: false, Help: "Connect to a SSH server. (provide the profile id)"})
-	argNew := parser.Selector("n", "new", []string{"PASSWORD", "KEYFILE"}, &argparse.Options{Required: false, Help: "Define what type off SSH profile to create."})
+	argNew := parser.Selector("n", "new", []string{"password", "keyfile"}, &argparse.Options{Required: false, Help: "Define what type off SSH profile to create."})
 
 	err := parser.Parse(os.Args)
 	if err != nil {
@@ -59,10 +59,12 @@ func Cli(app *AppInfo) (Commands, error) {
 	}
 
 	if len(*argNew) > 0 {
-		if *argNew == "PASSWORD" {
+		if *argNew == "password" {
 			cmds["type"] = database.AuthTypePassword
-		} else {
+		} else if *argNew == "keyfile" {
 			cmds["type"] = database.AuthTypePrivateKey
+		} else {
+			return cmds, fmt.Errorf("Could not parse: %s\n", *argNew)
 		}
 		cmds["new"] = ""
 		return cmds, nil
