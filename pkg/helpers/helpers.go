@@ -20,8 +20,10 @@ func SanitizePath(path string) string {
 
 	if path == "~" || path == "$HOME" {
 		sPath = dir
-	} else if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, "$HOME/") {
+	} else if strings.HasPrefix(path, "~/") {
 		sPath = filepath.Join(dir, path[2:])
+	} else if strings.HasPrefix(path, "$HOME/") {
+		sPath = filepath.Join(dir, path[5:])
 	} else {
 		sPath = path
 	}

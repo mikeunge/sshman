@@ -86,6 +86,7 @@ func main() {
 			auth, _ = getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("Password").WithMask("*"), func(t string) (string, error) { return t, nil })
 		} else {
 			auth, err = getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("Keyfile"), func(t string) (string, error) {
+				t = helpers.SanitizePath(t)
 				if !helpers.FileExists(t) {
 					return t, fmt.Errorf("File %s does not exist.", t)
 				}
@@ -117,11 +118,11 @@ func handleErrorAndCloseGracefully(err error, exitCode int, db *database.DB) {
 	if err != nil {
 		if db != nil {
 			if e := db.Disconnect(); e != nil {
-				pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", e)
+				pterm.DefaultBasicText.Printf(pterm.Red("\nERROR: ")+"%v\n", e)
 			}
 		}
 
-		pterm.DefaultBasicText.Printf(pterm.Red("ERROR: ")+"%v\n", err)
+		pterm.DefaultBasicText.Printf(pterm.Red("\nERROR: ")+"%v\n", err)
 		os.Exit(exitCode)
 	}
 }
