@@ -68,9 +68,8 @@ func main() {
 		})
 		handleErrorAndCloseGracefully(err, 1, db)
 
-		// FIXME: the validation fails for some reason, I guess there is an issue with the url validation
 		host, err := getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("Host"), func(h string) (string, error) {
-			if !helpers.IsValidIp(h) || !helpers.IsValidUrl(h) {
+			if !helpers.IsValidIp(h) && !helpers.IsValidUrl(h) {
 				return h, fmt.Errorf("Make sure the host is a valid url or ip address.")
 			}
 			return h, nil

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io/fs"
 	"net"
-	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -108,8 +108,10 @@ func IsValidIp(host string) bool {
 }
 
 func IsValidUrl(uri string) bool {
-	if _, err := url.ParseRequestURI(uri); err != nil {
-		return false
+	if uri == "localhost" {
+		return true
 	}
-	return true
+
+	re := regexp.MustCompile(`^(http:\/\/www\.|https:\/\/www\.|http:\/\/|https:\/\/|\/|\/\/)?[A-z0-9_-]*?[:]?[A-z0-9_-]*?[@]?[A-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5}(:[0-9]{1,5})?(\/.*)?$`)
+	return re.MatchString(uri)
 }
