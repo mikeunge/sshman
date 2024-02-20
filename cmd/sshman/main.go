@@ -60,13 +60,17 @@ func main() {
 	}
 
 	if _, ok := cmds["new"]; ok {
+		profile := database.SSHProfile{}
 		user, err := getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("User"), func(t string) (string, error) {
-			if len(t) < 1 || len(t) > 20 {
-				return t, fmt.Errorf("User should be bigger 1 and smaller 20 characters.")
+			if len(t) < 1 {
+				return t, fmt.Errorf("User cannot be empty.")
+			} else if len(t) > 50 {
+				return t, fmt.Errorf("Your username is too big.")
 			}
 			return t, nil
 		})
 		handleErrorAndCloseGracefully(err, 1, db)
+		profile.User = user
 
 		host, err := getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("Host"), func(h string) (string, error) {
 			if !helpers.IsValidIp(h) && !helpers.IsValidUrl(h) {
@@ -75,15 +79,18 @@ func main() {
 			return h, nil
 		})
 		handleErrorAndCloseGracefully(err, 1, db)
+		profile.Host = host
 
 		var authType database.SSHProfileAuthType
 		if authType, ok = cmds["type"].(database.SSHProfileAuthType); !ok {
 			handleErrorAndCloseGracefully(err, 1, db)
 		}
+		profile.AuthType = authType
 
 		var auth string
 		if authType == database.AuthTypePassword {
 			auth, _ = getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("Password").WithMask("*"), func(t string) (string, error) { return t, nil })
+			profile.Password = auth
 		} else {
 			auth, err = getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("Keyfile"), func(t string) (string, error) {
 				t = helpers.SanitizePath(t)
@@ -93,10 +100,14 @@ func main() {
 				return t, nil
 			})
 			handleErrorAndCloseGracefully(err, 1, db)
+			data, err := helpers.ReadFile(auth)
+			handleErrorAndCloseGracefully(err, -1, db)
+			profile.PrivateKey = data
 		}
-
-		pterm.Printf("\n%s, %s, %s\n", user, host, auth)
-
+		id, err := db.CreateSSHProfile(profile)
+		handleErrorAndCloseGracefully(err, 1, db)
+		fmt.Println()
+		pterm.Info.Printf("Successfully created SSH profile, id: %d\n", id)
 		os.Exit(0)
 	}
 
@@ -116,13 +127,13 @@ func getAndVerifyInput(input *pterm.InteractiveTextInputPrinter, verify func(str
 // Handle errors & gracefully disconnect from database
 func handleErrorAndCloseGracefully(err error, exitCode int, db *database.DB) {
 	if err != nil {
+		fmt.Println()
 		if db != nil {
 			if e := db.Disconnect(); e != nil {
-				pterm.DefaultBasicText.Printf(pterm.Red("\nERROR: ")+"%v\n", e)
+				pterm.Error.Printf("%v\n", e)
 			}
 		}
-
-		pterm.DefaultBasicText.Printf(pterm.Red("\nERROR: ")+"%v\n", err)
+		pterm.Error.Printf("%v\n", err)
 		os.Exit(exitCode)
 	}
 }
