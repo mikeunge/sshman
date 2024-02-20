@@ -13,12 +13,12 @@ type DB struct {
 }
 
 // Create an enum (SSHProfileType) because go doesn't provide it by default...
-type SSHProfileType int
+type SSHProfileAuthType int
 
 // SSH (enum-) types
 const (
-	TypePassword   SSHProfileType = 0
-	TypePrivateKey SSHProfileType = 1
+	AuthTypePassword   SSHProfileAuthType = 0
+	AuthTypePrivateKey SSHProfileAuthType = 1
 )
 
 // SSH profile model
@@ -28,7 +28,7 @@ type SSHProfile struct {
 	User       string
 	Password   string
 	PrivateKey []byte
-	Type       SSHProfileType
+	AuthType   SSHProfileAuthType
 	CTime      time.Time
 	MTime      time.Time
 }
@@ -59,4 +59,14 @@ func (d *DB) Disconnect() error {
 		return d.db.Close()
 	}
 	return nil
+}
+
+func GetNamedType(t SSHProfileAuthType) string {
+	if t == AuthTypePassword {
+		return "Password"
+	} else if t == AuthTypePrivateKey {
+		return "Private Key"
+	} else {
+		return "Unknown"
+	}
 }

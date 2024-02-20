@@ -25,8 +25,9 @@ Available Options:
 ## Todo
 
 - [ ] Functional CLI
+  - [ ] Verify / Validate the ssh keyfile
 - [ ] Store & retrieve SSH keys
-  - [ ] Get user & ip/hostnames
+  - [x] Get user & ip/hostnames
   - [ ] Conenct directly to server (_if wanted_)
 - [ ] Possibility to encrypt the SSH keys in the database
 - [ ] Export individual keys & user information for sharing
