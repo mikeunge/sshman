@@ -69,14 +69,16 @@ func (d *DB) UpdateSSHProfileById(id int64, updatedProfile SSHProfile) error {
 	return nil
 }
 
-func (d *DB) DeleteSSHProfileById(id int64) (int64, error) {
+func (d *DB) DeleteSSHProfileById(id int64) error {
 	var res sql.Result
 	var err error
 
-	fmt.Println(id)
-
 	if res, err = d.db.Exec("DELETE FROM SSH_Profile WHERE id = ?", id); err != nil {
-		return 0, err
+		return err
 	}
-	return res.RowsAffected()
+
+	if updates, _ := res.RowsAffected(); updates == 0 {
+		return fmt.Errorf("Are you sure a profile with id '%d' exists?", id)
+	}
+	return nil
 }

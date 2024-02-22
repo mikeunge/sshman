@@ -32,13 +32,9 @@ func (s *ProfileService) PrintProfilesList() error {
 }
 
 func (s *ProfileService) DeleteProfile(id int64) error {
-	var changes int64
-	var err error
-
-	if changes, err = s.DB.DeleteSSHProfileById(id); err != nil {
-		return fmt.Errorf("Could not delete Proflile, %s", err.Error())
+	if err := s.DB.DeleteSSHProfileById(id); err != nil {
+		return fmt.Errorf("Could not delete Proflile.\n%s", err.Error())
 	}
-	pterm.DefaultBasicText.Printf("Affected rows: %d\n", changes)
 	return nil
 }
 

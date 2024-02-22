@@ -57,12 +57,12 @@ func main() {
 	}
 
 	if _, ok := cmds["delete"]; ok {
-		profileId := cmds["delete"]
-		if _, ok = profileId.(int64); !ok {
+		var profileId int64
+		if profileId = cmds["delete"]; !ok {
 			handleErrorAndCloseGracefully(err, 1, db)
 		}
 
-		err := profileService.DeleteProfile(profileId.(int64))
+		err := profileService.DeleteProfile(profileId)
 		handleErrorAndCloseGracefully(err, 1, db)
 		os.Exit(0)
 	}

@@ -59,7 +59,7 @@ func Cli(app *AppInfo) (Commands, error) {
 	}
 
 	if *argDelete > 0 {
-		cmds["delete"] = fmt.Sprintf("%d", *argDelete)
+		cmds["delete"] = int64(*argDelete)
 		return cmds, nil
 	}
 
