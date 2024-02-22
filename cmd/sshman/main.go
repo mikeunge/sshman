@@ -16,7 +16,7 @@ import (
 var appInfo = cli.AppInfo{
 	Name:        "sshman",
 	Description: "Easy ssh connection management.",
-	Version:     "1.0.3",
+	Version:     "1.0.4",
 	Author:      "@mikeunge",
 	Github:      "https://github.com/mikeunge/sshman",
 }
@@ -55,6 +55,17 @@ func main() {
 		}
 
 		err := profileService.ConnectToSHHWithProfile(pId)
+		handleErrorAndCloseGracefully(err, 1, db)
+		os.Exit(0)
+	}
+
+	if _, ok := cmds["delete"]; ok {
+		profileId := cmds["delete"]
+		if _, ok = profileId.(int64); !ok {
+			handleErrorAndCloseGracefully(err, 1, db)
+		}
+
+		err := profileService.DeleteProfile(profileId.(int64))
 		handleErrorAndCloseGracefully(err, 1, db)
 		os.Exit(0)
 	}
@@ -114,7 +125,9 @@ func main() {
 	os.Exit(0)
 }
 
-func getAndVerifyInput(input *pterm.InteractiveTextInputPrinter, verify func(string) (string, error)) (string, error) {
+type validator func(string) (string, error)
+
+func getAndVerifyInput(input *pterm.InteractiveTextInputPrinter, verify validator) (string, error) {
 	var t string
 	var err error
 
