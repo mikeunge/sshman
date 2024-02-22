@@ -16,7 +16,7 @@ import (
 var appInfo = cli.AppInfo{
 	Name:        "sshman",
 	Description: "Easy ssh connection management.",
-	Version:     "1.0.4",
+	Version:     "1.0.5",
 	Author:      "@mikeunge",
 	Github:      "https://github.com/mikeunge/sshman",
 }
@@ -47,14 +47,11 @@ func main() {
 	}
 
 	if _, ok := cmds["connect"]; ok {
-		var pId int64
-
-		profileId := cmds["connect"]
-		if pId, ok = profileId.(int64); !ok {
-			handleErrorAndCloseGracefully(err, 1, db)
+		var profileId int64
+		if profileId = cmds["connect"]; profileId <= 0 {
+			handleErrorAndCloseGracefully(fmt.Errorf("Profile ID cannot be 0 or less."), -1, db)
 		}
-
-		err := profileService.ConnectToSHHWithProfile(pId)
+		err := profileService.ConnectToSHHWithProfile(profileId)
 		handleErrorAndCloseGracefully(err, 1, db)
 		os.Exit(0)
 	}
@@ -92,10 +89,7 @@ func main() {
 		handleErrorAndCloseGracefully(err, 1, db)
 		profile.Host = host
 
-		var authType database.SSHProfileAuthType
-		if authType, ok = cmds["type"].(database.SSHProfileAuthType); !ok {
-			handleErrorAndCloseGracefully(err, 1, db)
-		}
+		authType := database.SSHProfileAuthType(cmds["type"])
 		profile.AuthType = authType
 
 		var auth string

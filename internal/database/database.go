@@ -13,7 +13,7 @@ type DB struct {
 }
 
 // Create an enum (SSHProfileType) because go doesn't provide it by default...
-type SSHProfileAuthType int
+type SSHProfileAuthType int64
 
 // SSH (enum-) types
 const (

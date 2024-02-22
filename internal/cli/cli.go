@@ -18,11 +18,10 @@ type AppInfo struct {
 	Github      string
 }
 
-// FIXME: not best practice to use an interface because of missing types - find a better way to move data across the packages.
-type Commands map[string]interface{}
+type Commands map[string]int64
 
 func Cli(app *AppInfo) (Commands, error) {
-	var cmds = make(map[string]interface{})
+	var cmds = make(map[string]int64)
 
 	parser := argparse.NewParser(app.Name, app.Description)
 	argVersion := parser.Flag("v", "version", &argparse.Options{Required: false, Help: "Prints the version."})
@@ -50,12 +49,12 @@ func Cli(app *AppInfo) (Commands, error) {
 	}
 
 	if *argList {
-		cmds["list"] = ""
+		cmds["list"] = 0
 		return cmds, nil
 	}
 
 	if *argConnect > 0 {
-		cmds["connect"] = fmt.Sprintf("%d", *argConnect)
+		cmds["connect"] = int64(*argConnect)
 		return cmds, nil
 	}
 
@@ -66,13 +65,13 @@ func Cli(app *AppInfo) (Commands, error) {
 
 	if len(*argNew) > 0 {
 		if *argNew == "password" {
-			cmds["type"] = database.AuthTypePassword
+			cmds["type"] = int64(database.AuthTypePassword)
 		} else if *argNew == "keyfile" {
-			cmds["type"] = database.AuthTypePrivateKey
+			cmds["type"] = int64(database.AuthTypePrivateKey)
 		} else {
 			return cmds, fmt.Errorf("Could not parse: %s\n", *argNew)
 		}
-		cmds["new"] = ""
+		cmds["new"] = 0
 		return cmds, nil
 	}
 
