@@ -56,6 +56,17 @@ func main() {
 		os.Exit(0)
 	}
 
+	if _, ok := cmds["delete"]; ok {
+		var profileId int64
+		if profileId = cmds["delete"]; !ok {
+			handleErrorAndCloseGracefully(err, 1, db)
+		}
+
+		err := profileService.DeleteProfile(profileId)
+		handleErrorAndCloseGracefully(err, 1, db)
+		os.Exit(0)
+	}
+
 	if _, ok := cmds["new"]; ok {
 		profile := database.SSHProfile{}
 		user, err := getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("User"), func(t string) (string, error) {
@@ -108,7 +119,9 @@ func main() {
 	os.Exit(0)
 }
 
-func getAndVerifyInput(input *pterm.InteractiveTextInputPrinter, verify func(string) (string, error)) (string, error) {
+type validator func(string) (string, error)
+
+func getAndVerifyInput(input *pterm.InteractiveTextInputPrinter, verify validator) (string, error) {
 	var t string
 	var err error
 

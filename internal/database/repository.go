@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 )
 
 func (d *DB) CreateSSHProfile(profile SSHProfile) (int64, error) {
@@ -69,8 +70,15 @@ func (d *DB) UpdateSSHProfileById(id int64, updatedProfile SSHProfile) error {
 }
 
 func (d *DB) DeleteSSHProfileById(id int64) error {
-	if _, err := d.db.Exec("DELETE FROM SSH_Profile WHERE id=?;", id); err != nil {
+	var res sql.Result
+	var err error
+
+	if res, err = d.db.Exec("DELETE FROM SSH_Profile WHERE id = ?", id); err != nil {
 		return err
+	}
+
+	if updates, _ := res.RowsAffected(); updates == 0 {
+		return fmt.Errorf("Are you sure a profile with id '%d' exists?", id)
 	}
 	return nil
 }

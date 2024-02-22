@@ -29,6 +29,7 @@ func Cli(app *AppInfo) (Commands, error) {
 	argList := parser.Flag("l", "list", &argparse.Options{Required: false, Help: "List of all available SSH connections."})
 	argConnect := parser.Int("c", "connect", &argparse.Options{Required: false, Help: "Connect to a SSH server. (provide the profile id)"})
 	argNew := parser.Selector("n", "new", []string{"password", "keyfile"}, &argparse.Options{Required: false, Help: "Define what type off SSH profile to create."})
+	argDelete := parser.Int("d", "delete", &argparse.Options{Required: false, Help: "Delete a SSH profile. (provide the profile id)"})
 
 	err := parser.Parse(os.Args)
 	if err != nil {
@@ -57,6 +58,11 @@ func Cli(app *AppInfo) (Commands, error) {
 		return cmds, nil
 	}
 
+	if *argDelete > 0 {
+		cmds["delete"] = int64(*argDelete)
+		return cmds, nil
+	}
+
 	if len(*argNew) > 0 {
 		if *argNew == "password" {
 			cmds["type"] = int64(database.AuthTypePassword)
@@ -69,5 +75,5 @@ func Cli(app *AppInfo) (Commands, error) {
 		return cmds, nil
 	}
 
-	return cmds, fmt.Errorf("No command provided.")
+	return cmds, fmt.Errorf("No command provided. Use 'sshman --help' for more information.")
 }

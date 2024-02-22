@@ -31,6 +31,13 @@ func (s *ProfileService) PrintProfilesList() error {
 	return nil
 }
 
+func (s *ProfileService) DeleteProfile(id int64) error {
+	if err := s.DB.DeleteSSHProfileById(id); err != nil {
+		return fmt.Errorf("Could not delete Proflile.\n%s", err.Error())
+	}
+	return nil
+}
+
 func (s *ProfileService) ConnectToSHHWithProfile(profileId int64) error {
 	var profile database.SSHProfile
 	var err error
