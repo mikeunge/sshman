@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/mikeunge/sshman/pkg/helpers"
@@ -21,13 +22,23 @@ const (
 	AuthTypePrivateKey SSHProfileAuthType = 1
 )
 
-func GetNamedType(t SSHProfileAuthType) string {
+func GetNameFromAuthType(t SSHProfileAuthType) string {
 	if t == AuthTypePassword {
 		return "Password"
 	} else if t == AuthTypePrivateKey {
 		return "Private Key"
 	} else {
 		return "Unknown"
+	}
+}
+
+func GetAuthTypeFromName(s string) (SSHProfileAuthType, error) {
+	if s == "Password" {
+		return AuthTypePassword, nil
+	} else if s == "Private Key" {
+		return AuthTypePrivateKey, nil
+	} else {
+		return 0, fmt.Errorf("%s is not a valid authentication type!", s)
 	}
 }
 

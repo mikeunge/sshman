@@ -20,6 +20,12 @@ Available Options:
   -h  --help              Print help information.
   -v  --version           Prints the version.
       --about             Prints information about the program.
+  -l  --list              List of all available SSH profiles.
+  -c  --connect           Connect to a server with profile.
+  -n  --new               Create a new SSH profile.
+  -u  --update            Update an SSH profile.
+  -d  --delete            Delete SSH profiles.
+  -e  --export            Export profiles (for eg. sharing).
 ```
 
 ## Todo
