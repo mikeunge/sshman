@@ -16,7 +16,7 @@ type ProfileService struct {
 
 func (s *ProfileService) NewProfile() error {
 	profile := database.SSHProfile{}
-	user, err := getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("User"), func(t string) (string, error) {
+	user, err := parseAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("User"), func(t string) (string, error) {
 		if len(t) < 1 {
 			return t, fmt.Errorf("User cannot be empty.")
 		} else if len(t) > 50 {
@@ -29,7 +29,7 @@ func (s *ProfileService) NewProfile() error {
 	}
 	profile.User = user
 
-	host, err := getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("Host"), func(h string) (string, error) {
+	host, err := parseAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("Host"), func(h string) (string, error) {
 		if !helpers.IsValidIp(h) && !helpers.IsValidUrl(h) {
 			return h, fmt.Errorf("Make sure the host is a valid url or ip address.")
 		}
@@ -40,15 +40,26 @@ func (s *ProfileService) NewProfile() error {
 	}
 	profile.Host = host
 
-	authType := database.AuthTypePrivateKey
+	authTypeOptions := []string{"Password", "Private Key"}
+	selectedOption, err := pterm.DefaultInteractiveSelect.WithDefaultText("What kind of authentication do you need?").WithOptions(authTypeOptions).Show()
+	if err != nil {
+		return err
+	}
+
+	authType, err := database.GetAuthTypeFromName(selectedOption)
+	if err != nil {
+		return err
+	}
 	profile.AuthType = authType
 
 	var auth string
 	if authType == database.AuthTypePassword {
-		auth, _ = getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("Password").WithMask("*"), func(t string) (string, error) { return t, nil })
+		if auth, err = pterm.DefaultInteractiveTextInput.WithDefaultText("Password").WithMask("*").Show(); err != nil {
+			return err
+		}
 		profile.Password = auth
 	} else {
-		auth, err = getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("Keyfile"), func(t string) (string, error) {
+		auth, err = parseAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("Keyfile"), func(t string) (string, error) {
 			t = helpers.SanitizePath(t)
 			if !helpers.FileExists(t) {
 				return t, fmt.Errorf("File %s does not exist.", t)
@@ -65,12 +76,19 @@ func (s *ProfileService) NewProfile() error {
 		}
 		profile.PrivateKey = data
 	}
-	id, err := s.DB.CreateSSHProfile(profile)
-	if err != nil {
+
+	if create, err := pterm.DefaultInteractiveConfirm.WithDefaultText("\nCreate new profile?").Show(); err != nil || !create {
+		if !create {
+			pterm.Info.Println("Profile creation aborted, exiting.")
+			return nil
+		}
 		return err
 	}
-	fmt.Println()
-	pterm.Info.Printf("Successfully created SSH profile, id: %d\n", id)
+
+	if _, err := s.DB.CreateSSHProfile(profile); err != nil {
+		return err
+	}
+	pterm.Info.Printf("Successfully created SSH profile")
 	return nil
 }
 
@@ -114,7 +132,7 @@ func PrettyPrintProfiles(profiles []database.SSHProfile) {
 	var data [][]string
 	data = append(data, []string{"ID", "User", "Host/IP", "AuthType"}) // define the table header
 	for _, profile := range profiles {
-		authType := database.GetNamedType(profile.AuthType)
+		authType := database.GetNameFromAuthType(profile.AuthType)
 		data = append(data, []string{fmt.Sprintf("%d", profile.Id), profile.User, profile.Host, authType})
 	}
 	pterm.DefaultTable.WithHasHeader().WithData(data).Render()
@@ -122,7 +140,7 @@ func PrettyPrintProfiles(profiles []database.SSHProfile) {
 
 type validator func(string) (string, error)
 
-func getAndVerifyInput(input *pterm.InteractiveTextInputPrinter, verify validator) (string, error) {
+func parseAndVerifyInput(input *pterm.InteractiveTextInputPrinter, verify validator) (string, error) {
 	var t string
 	var err error
 
