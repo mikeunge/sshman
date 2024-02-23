@@ -131,6 +131,7 @@ func (s *ProfileService) ExportProfile() error {
 	if err != nil {
 		return err
 	}
+	pterm.Println()
 	prettyPrintProfiles(profiles)
 
 	return nil
@@ -225,10 +226,12 @@ func (s *ProfileService) multiSelectProfiles(t string, maxHeight int) ([]int64, 
 
 func prettyPrintProfiles(profiles []database.SSHProfile) {
 	var data [][]string
-	data = append(data, []string{"ID", "User", "Host/IP", "AuthType"}) // define the table header
+	var dFormat = "02.01.2006 15:04"
+
+	data = append(data, []string{"ID", "User", "Host/IP", "Authentication", "Created At"}) // define the table header
 	for _, profile := range profiles {
 		authType := database.GetNameFromAuthType(profile.AuthType)
-		data = append(data, []string{fmt.Sprintf("%d", profile.Id), profile.User, profile.Host, authType})
+		data = append(data, []string{fmt.Sprintf("%d", profile.Id), profile.User, profile.Host, authType, profile.CTime.Format(dFormat)})
 	}
 	pterm.DefaultTable.
 		WithHasHeader().
