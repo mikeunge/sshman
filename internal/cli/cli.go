@@ -33,12 +33,12 @@ func (app *App) New() error {
 	parser := argparse.NewParser(app.Name, app.Description)
 	argVersion := parser.Flag("v", "version", &argparse.Options{Required: false, Help: "Prints the version."})
 	argAbout := parser.Flag("", "about", &argparse.Options{Required: false, Help: "Print information about the app."})
-	argList := parser.Flag("l", "list", &argparse.Options{Required: false, Help: "List of all available SSH connections."})
-	argConnect := parser.Flag("c", "connect", &argparse.Options{Required: false, Help: "Connect to a SSH server."})
-	argNew := parser.Flag("n", "new", &argparse.Options{Required: false, Help: "Define what type off SSH profile to create."})
-	argUpdate := parser.Flag("u", "update", &argparse.Options{Required: false, Help: "Update a SSH profile."})
-	argDelete := parser.Flag("d", "delete", &argparse.Options{Required: false, Help: "Delete a SSH profile."})
-	argExport := parser.Flag("e", "export", &argparse.Options{Required: false, Help: "Export a SSH profile."})
+	argList := parser.Flag("l", "list", &argparse.Options{Required: false, Help: "Connect to a server with profile."})
+	argConnect := parser.Flag("c", "connect", &argparse.Options{Required: false, Help: "Connect to a server with profile."})
+	argNew := parser.Flag("n", "new", &argparse.Options{Required: false, Help: "Create a new SSH profile."})
+	argUpdate := parser.Flag("u", "update", &argparse.Options{Required: false, Help: "Update an SSH profile."})
+	argDelete := parser.Flag("d", "delete", &argparse.Options{Required: false, Help: "Delete SSH profiles."})
+	argExport := parser.Flag("e", "export", &argparse.Options{Required: false, Help: "Export profiles (for eg. sharing)."})
 
 	err := parser.Parse(os.Args)
 	if err != nil {

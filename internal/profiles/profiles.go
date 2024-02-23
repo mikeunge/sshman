@@ -57,17 +57,15 @@ func (s *ProfileService) NewProfile() error {
 		auth, _ = writer.WithDefaultText("Password").WithMask("*").Show()
 		profile.Password = auth
 	} else {
-		auth, err = parseAndVerifyInput(writer.WithDefaultText("Keyfile"), func(t string) (string, error) {
+		if auth, err = parseAndVerifyInput(writer.WithDefaultText("Keyfile"), func(t string) (string, error) {
 			t = helpers.SanitizePath(t)
 			if !helpers.FileExists(t) {
 				return t, fmt.Errorf("File %s does not exist.", t)
 			}
 			return t, nil
-		})
-		if err != nil {
+		}); err != nil {
 			return err
 		}
-
 		data, err := helpers.ReadFile(auth)
 		if err != nil {
 			return err
