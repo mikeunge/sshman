@@ -28,6 +28,34 @@ func (d *DB) GetSSHProfileById(id int64) (SSHProfile, error) {
 	return profile, nil
 }
 
+func (d *DB) GetSSHProfilesById(ids []int64) ([]SSHProfile, error) {
+	var profiles []SSHProfile
+
+	query := "SELECT * FROM SSH_Profile WHERE"
+	for i, id := range ids {
+		if i == 0 {
+			query = fmt.Sprintf("%s id=%d", query, id)
+			continue
+		}
+		query = fmt.Sprintf("%s OR id=%d", query, id)
+	}
+
+	rows, err := d.db.Query(query)
+	if err != nil {
+		return profiles, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var profile SSHProfile
+		if err = rows.Scan(&profile.Id, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.AuthType, &profile.CTime, &profile.MTime); err == sql.ErrNoRows {
+			return profiles, err
+		}
+		profiles = append(profiles, profile)
+	}
+	return profiles, nil
+}
+
 func (d *DB) GetAllSSHProfiles() ([]SSHProfile, error) {
 	var profiles []SSHProfile
 

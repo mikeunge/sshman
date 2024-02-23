@@ -45,11 +45,7 @@ func (s *ProfileService) NewProfile() error {
 	profile.Host = host
 
 	authTypeOptions := []string{"Password", "Private Key"}
-	selectedOption, err := pterm.DefaultInteractiveSelect.WithDefaultText("What kind of authentication do you need?").WithOptions(authTypeOptions).Show()
-	if err != nil {
-		return err
-	}
-
+	selectedOption, _ := pterm.DefaultInteractiveSelect.WithDefaultText("What kind of authentication do you need?").WithOptions(authTypeOptions).Show()
 	authType, err := database.GetAuthTypeFromName(selectedOption)
 	if err != nil {
 		return err
@@ -58,9 +54,7 @@ func (s *ProfileService) NewProfile() error {
 
 	var auth string
 	if authType == database.AuthTypePassword {
-		if auth, err = writer.WithDefaultText("Password").WithMask("*").Show(); err != nil {
-			return err
-		}
+		auth, _ = writer.WithDefaultText("Password").WithMask("*").Show()
 		profile.Password = auth
 	} else {
 		auth, err = parseAndVerifyInput(writer.WithDefaultText("Keyfile"), func(t string) (string, error) {
@@ -81,12 +75,9 @@ func (s *ProfileService) NewProfile() error {
 		profile.PrivateKey = data
 	}
 
-	if create, err := pterm.DefaultInteractiveConfirm.WithDefaultText("\nCreate new profile?").Show(); err != nil || !create {
-		if !create {
-			pterm.Info.Println("Profile creation aborted, exiting.")
-			return nil
-		}
-		return err
+	if create, _ := pterm.DefaultInteractiveConfirm.WithDefaultText("\nCreate new profile?").Show(); !create {
+		pterm.Info.Println("Profile creation aborted, exiting.")
+		return nil
 	}
 
 	if _, err := s.DB.CreateSSHProfile(profile); err != nil {
@@ -109,21 +100,14 @@ func (s *ProfileService) ProfilesList() error {
 
 func (s *ProfileService) DeleteProfile() error {
 	var profiles []int64
-	var err error
 
-	if profiles, err = s.selectProfiles("Select profiles to delete", 0); err != nil || len(profiles) == 0 {
-		if len(profiles) == 0 {
-			return fmt.Errorf("No profiles selected, exiting.")
-		}
-		return err
+	if profiles, _ = s.multiSelectProfiles("Select profiles to delete", 0); len(profiles) == 0 {
+		return fmt.Errorf("No profiles selected, exiting.")
 	}
 
-	if d, err := pterm.DefaultInteractiveConfirm.WithDefaultText("\nAre you sure?").Show(); err != nil || !d {
-		if !d {
-			pterm.Info.Println("Profile deletion aborted, exiting.")
-			return nil
-		}
-		return err
+	if d, _ := pterm.DefaultInteractiveConfirm.WithDefaultText("\nAre you sure?").Show(); !d {
+		pterm.Info.Println("Profile deletion aborted, exiting.")
+		return nil
 	}
 
 	for _, id := range profiles {
@@ -137,9 +121,18 @@ func (s *ProfileService) DeleteProfile() error {
 }
 
 func (s *ProfileService) ExportProfile() error {
-	if err := s.DB.DeleteSSHProfileById(1); err != nil {
-		return fmt.Errorf("Could not delete Proflile.\n%s", err.Error())
+	var profileIds []int64
+
+	if profileIds, _ = s.multiSelectProfiles("Select profiles to export", 0); len(profileIds) == 0 {
+		return fmt.Errorf("No profiles selected, exiting.")
 	}
+
+	profiles, err := s.DB.GetSSHProfilesById(profileIds)
+	if err != nil {
+		return err
+	}
+	prettyPrintProfiles(profiles)
+
 	return nil
 }
 
@@ -165,6 +158,24 @@ func prettyPrintProfiles(profiles []database.SSHProfile) {
 		WithHasHeader().
 		WithData(data).
 		Render()
+}
+
+func parseIdsFromSelectedProfiles(selectedProfiles []string) ([]int64, error) {
+	var ids []int64
+
+	for _, profile := range selectedProfiles {
+		id := strings.Split(profile, " ")[0]
+		if len(id) == 0 {
+			return ids, fmt.Errorf("Could not retrieve id from %s.", selectedProfiles)
+		}
+
+		iId, err := strconv.ParseInt(id, 10, 64)
+		if err != nil {
+			return ids, fmt.Errorf("Could not parse id from %s.", selectedProfiles)
+		}
+		ids = append(ids, iId)
+	}
+	return ids, nil
 }
 
 func (s *ProfileService) selectProfiles(t string, maxHeight int) ([]int64, error) {
@@ -201,19 +212,45 @@ func (s *ProfileService) selectProfiles(t string, maxHeight int) ([]int64, error
 		return selectedProfiles, err
 	}
 
-	for _, option := range selectedOptions {
-		id := strings.Split(option, " ")[0]
-		if len(id) == 0 {
-			return selectedProfiles, fmt.Errorf("Could not retrieve id from %s.", option)
-		}
+	if selectedProfiles, err = parseIdsFromSelectedProfiles(selectedOptions); err != nil {
+		return selectedProfiles, err
+	}
+	return selectedProfiles, nil
+}
 
-		iId, err := strconv.ParseInt(id, 10, 64)
-		if err != nil {
-			return selectedProfiles, fmt.Errorf("Could not parse id from %s.", option)
-		}
-		selectedProfiles = append(selectedProfiles, iId)
+func (s *ProfileService) multiSelectProfiles(t string, maxHeight int) ([]int64, error) {
+	var profiles []database.SSHProfile
+	var selectedProfiles []int64
+	var err error
+
+	if profiles, err = s.DB.GetAllSSHProfiles(); err != nil {
+		return selectedProfiles, err
 	}
 
+	var pProfiles []string
+	for _, p := range profiles {
+		authType := database.GetNameFromAuthType(p.AuthType)
+		pProfiles = append(pProfiles, fmt.Sprintf("%d %s %s %s", p.Id, p.Host, p.User, authType))
+	}
+
+	height := len(pProfiles)
+	if len(pProfiles) > maxHeight && maxHeight > 0 {
+		height = maxHeight
+	}
+
+	selectedOptions, _ := pterm.DefaultInteractiveMultiselect.
+		WithDefaultText(t).
+		WithOptions(pProfiles).
+		WithMaxHeight(height).
+		WithFilter(false).
+		WithKeyConfirm(keys.Enter).
+		WithKeySelect(keys.Space).
+		WithCheckmark(&pterm.Checkmark{Checked: pterm.Green("+"), Unchecked: pterm.Red("-")}).
+		Show()
+
+	if selectedProfiles, err = parseIdsFromSelectedProfiles(selectedOptions); err != nil {
+		return selectedProfiles, err
+	}
 	return selectedProfiles, nil
 }
 
