@@ -147,37 +147,6 @@ func (s *ProfileService) ConnectToSHHWithProfile() error {
 	return nil
 }
 
-func prettyPrintProfiles(profiles []database.SSHProfile) {
-	var data [][]string
-	data = append(data, []string{"ID", "User", "Host/IP", "AuthType"}) // define the table header
-	for _, profile := range profiles {
-		authType := database.GetNameFromAuthType(profile.AuthType)
-		data = append(data, []string{fmt.Sprintf("%d", profile.Id), profile.User, profile.Host, authType})
-	}
-	pterm.DefaultTable.
-		WithHasHeader().
-		WithData(data).
-		Render()
-}
-
-func parseIdsFromSelectedProfiles(selectedProfiles []string) ([]int64, error) {
-	var ids []int64
-
-	for _, profile := range selectedProfiles {
-		id := strings.Split(profile, " ")[0]
-		if len(id) == 0 {
-			return ids, fmt.Errorf("Could not retrieve id from %s.", selectedProfiles)
-		}
-
-		iId, err := strconv.ParseInt(id, 10, 64)
-		if err != nil {
-			return ids, fmt.Errorf("Could not parse id from %s.", selectedProfiles)
-		}
-		ids = append(ids, iId)
-	}
-	return ids, nil
-}
-
 func (s *ProfileService) selectProfiles(t string, maxHeight int) ([]int64, error) {
 	var profiles []database.SSHProfile
 	var selectedProfiles []int64
@@ -252,6 +221,37 @@ func (s *ProfileService) multiSelectProfiles(t string, maxHeight int) ([]int64, 
 		return selectedProfiles, err
 	}
 	return selectedProfiles, nil
+}
+
+func prettyPrintProfiles(profiles []database.SSHProfile) {
+	var data [][]string
+	data = append(data, []string{"ID", "User", "Host/IP", "AuthType"}) // define the table header
+	for _, profile := range profiles {
+		authType := database.GetNameFromAuthType(profile.AuthType)
+		data = append(data, []string{fmt.Sprintf("%d", profile.Id), profile.User, profile.Host, authType})
+	}
+	pterm.DefaultTable.
+		WithHasHeader().
+		WithData(data).
+		Render()
+}
+
+func parseIdsFromSelectedProfiles(selectedProfiles []string) ([]int64, error) {
+	var ids []int64
+
+	for _, profile := range selectedProfiles {
+		id := strings.Split(profile, " ")[0]
+		if len(id) == 0 {
+			return ids, fmt.Errorf("Could not retrieve id from %s.", selectedProfiles)
+		}
+
+		iId, err := strconv.ParseInt(id, 10, 64)
+		if err != nil {
+			return ids, fmt.Errorf("Could not parse id from %s.", selectedProfiles)
+		}
+		ids = append(ids, iId)
+	}
+	return ids, nil
 }
 
 type validator func(string) (string, error)
