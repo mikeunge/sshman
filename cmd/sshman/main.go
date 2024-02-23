@@ -8,28 +8,25 @@ import (
 	"github.com/mikeunge/sshman/internal/database"
 	"github.com/mikeunge/sshman/internal/profiles"
 	"github.com/mikeunge/sshman/pkg/config"
-	"github.com/mikeunge/sshman/pkg/helpers"
 
 	"github.com/pterm/pterm"
 )
-
-var appInfo = cli.AppInfo{
-	Name:        "sshman",
-	Description: "Easy ssh connection management.",
-	Version:     "1.0.5",
-	Author:      "@mikeunge",
-	Github:      "https://github.com/mikeunge/sshman",
-}
 
 const (
 	defaultConfigPath = "~/.config/sshman.json"
 )
 
 func main() {
-	var cmds cli.Commands
 	var err error
+	var app = cli.App{
+		Name:        "sshman",
+		Description: "Easy ssh connection management.",
+		Version:     "1.0.6",
+		Author:      "@mikeunge",
+		Github:      "https://github.com/mikeunge/sshman",
+	}
 
-	cmds, err = cli.Cli(&appInfo)
+	err = app.New()
 	handleErrorAndCloseGracefully(err, 1, nil)
 
 	config, err := config.Parse(defaultConfigPath)
@@ -38,109 +35,35 @@ func main() {
 	db := &database.DB{Path: config.DatabasePath}
 	err = db.Connect()
 	handleErrorAndCloseGracefully(err, 1, db)
-
 	profileService := profiles.ProfileService{DB: db}
-	if _, ok := cmds["list"]; ok {
-		err := profileService.PrintProfilesList()
+
+	switch app.SelectedCommand {
+	case cli.CommandList:
+		err := profileService.ProfilesList()
 		handleErrorAndCloseGracefully(err, 1, db)
-		os.Exit(0)
-	}
-
-	if _, ok := cmds["connect"]; ok {
-		var profileId int64
-		if profileId = cmds["connect"]; profileId <= 0 {
-			handleErrorAndCloseGracefully(fmt.Errorf("Profile ID cannot be 0 or less."), -1, db)
-		}
-		err := profileService.ConnectToSHHWithProfile(profileId)
+		break
+	case cli.CommandConnect:
+		err := profileService.ConnectToSHHWithProfile()
 		handleErrorAndCloseGracefully(err, 1, db)
-		os.Exit(0)
-	}
-
-	if _, ok := cmds["delete"]; ok {
-		var profileId int64
-		if profileId = cmds["delete"]; !ok {
-			handleErrorAndCloseGracefully(err, 1, db)
-		}
-
-		err := profileService.DeleteProfile(profileId)
+		break
+	case cli.CommandDelete:
+		err := profileService.DeleteProfile()
 		handleErrorAndCloseGracefully(err, 1, db)
-		os.Exit(0)
-	}
-
-	if _, ok := cmds["export"]; ok {
-		var profileId int64
-		if profileId = cmds["export"]; !ok {
-			handleErrorAndCloseGracefully(err, 1, db)
-		}
-		profile, err := profileService.DB.GetSSHProfileById(profileId)
+		break
+	case cli.CommandExport:
+		err := profileService.ExportProfile()
 		handleErrorAndCloseGracefully(err, 1, db)
-		profiles.PrettyPrintProfiles([]database.SSHProfile{profile})
-		os.Exit(0)
-	}
-
-	// TODO: Update is the same as new (almost), rewrite logic to make sure both workflows are in one func
-	if _, ok := cmds["new"]; ok {
-		profile := database.SSHProfile{}
-		user, err := getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("User"), func(t string) (string, error) {
-			if len(t) < 1 {
-				return t, fmt.Errorf("User cannot be empty.")
-			} else if len(t) > 50 {
-				return t, fmt.Errorf("Your username is too big.")
-			}
-			return t, nil
-		})
+		break
+	case cli.CommandNew:
+		err := profileService.NewProfile()
 		handleErrorAndCloseGracefully(err, 1, db)
-		profile.User = user
-
-		host, err := getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("Host"), func(h string) (string, error) {
-			if !helpers.IsValidIp(h) && !helpers.IsValidUrl(h) {
-				return h, fmt.Errorf("Make sure the host is a valid url or ip address.")
-			}
-			return h, nil
-		})
-		handleErrorAndCloseGracefully(err, 1, db)
-		profile.Host = host
-
-		authType := database.SSHProfileAuthType(cmds["type"])
-		profile.AuthType = authType
-
-		var auth string
-		if authType == database.AuthTypePassword {
-			auth, _ = getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("Password").WithMask("*"), func(t string) (string, error) { return t, nil })
-			profile.Password = auth
-		} else {
-			auth, err = getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("Keyfile"), func(t string) (string, error) {
-				t = helpers.SanitizePath(t)
-				if !helpers.FileExists(t) {
-					return t, fmt.Errorf("File %s does not exist.", t)
-				}
-				return t, nil
-			})
-			handleErrorAndCloseGracefully(err, 1, db)
-			data, err := helpers.ReadFile(auth)
-			handleErrorAndCloseGracefully(err, -1, db)
-			profile.PrivateKey = data
-		}
-		id, err := db.CreateSSHProfile(profile)
-		handleErrorAndCloseGracefully(err, 1, db)
-		fmt.Println()
-		pterm.Info.Printf("Successfully created SSH profile, id: %d\n", id)
-		os.Exit(0)
+		break
+	default:
+		handleErrorAndCloseGracefully(fmt.Errorf("Selected command is not valid, exiting."), 10, db)
+		break
 	}
 
 	os.Exit(0)
-}
-
-type validator func(string) (string, error)
-
-func getAndVerifyInput(input *pterm.InteractiveTextInputPrinter, verify validator) (string, error) {
-	var t string
-	var err error
-
-	if t, err = input.Show(); err != nil {
-		return t, err
-	}
-	return verify(t)
 }
 
 // Handle errors & gracefully disconnect from database

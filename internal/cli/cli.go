@@ -5,40 +5,44 @@ import (
 	"os"
 
 	"github.com/akamensky/argparse"
-	"github.com/mikeunge/sshman/internal/database"
 	"github.com/pterm/pterm"
 	"github.com/pterm/pterm/putils"
 )
 
-type AppInfo struct {
-	Name        string
-	Description string
-	Version     string
-	Author      string
-	Github      string
+type Command int
+
+const (
+	CommandList    Command = 0
+	CommandConnect Command = 1
+	CommandNew     Command = 2
+	CommandUpdate  Command = 3
+	CommandDelete  Command = 4
+	CommandExport  Command = 5
+)
+
+type App struct {
+	Name            string
+	Description     string
+	Version         string
+	Author          string
+	Github          string
+	SelectedCommand Command
 }
 
-type Commands map[string]int64
-
-func Cli(app *AppInfo) (Commands, error) {
-	var cmds = make(map[string]int64)
-
+func (app *App) New() error {
 	parser := argparse.NewParser(app.Name, app.Description)
 	argVersion := parser.Flag("v", "version", &argparse.Options{Required: false, Help: "Prints the version."})
 	argAbout := parser.Flag("", "about", &argparse.Options{Required: false, Help: "Print information about the app."})
 	argList := parser.Flag("l", "list", &argparse.Options{Required: false, Help: "List of all available SSH connections."})
-
-	argConnect := parser.Int("c", "connect", &argparse.Options{Required: false, Help: "Connect to a SSH server. (provide the profile id)"})
-	argNew := parser.Selector("n", "new", []string{"password", "keyfile"}, &argparse.Options{Required: false, Help: "Define what type off SSH profile to create."})
-	argUpdate := parser.Int("u", "update", &argparse.Options{Required: false, Help: "Update a SSH profile. (provide the profile id)"})
-
-	// TODO: maybe refactor to accept an array of integers
-	argDelete := parser.Int("d", "delete", &argparse.Options{Required: false, Help: "Delete a SSH profile. (provide the profile id)"})
-	argExport := parser.Int("e", "export", &argparse.Options{Required: false, Help: "Export a SSH profile. (provide the profile id)"})
+	argConnect := parser.Flag("c", "connect", &argparse.Options{Required: false, Help: "Connect to a SSH server."})
+	argNew := parser.Flag("n", "new", &argparse.Options{Required: false, Help: "Define what type off SSH profile to create."})
+	argUpdate := parser.Flag("u", "update", &argparse.Options{Required: false, Help: "Update a SSH profile."})
+	argDelete := parser.Flag("d", "delete", &argparse.Options{Required: false, Help: "Delete a SSH profile."})
+	argExport := parser.Flag("e", "export", &argparse.Options{Required: false, Help: "Export a SSH profile."})
 
 	err := parser.Parse(os.Args)
 	if err != nil {
-		return cmds, fmt.Errorf("%+v", parser.Usage(err))
+		return fmt.Errorf("%+v", parser.Usage(err))
 	}
 
 	if *argVersion {
@@ -54,41 +58,34 @@ func Cli(app *AppInfo) (Commands, error) {
 	}
 
 	if *argList {
-		cmds["list"] = 0
-		return cmds, nil
+		app.SelectedCommand = CommandList
+		return nil
 	}
 
-	if *argConnect > 0 {
-		cmds["connect"] = int64(*argConnect)
-		return cmds, nil
+	if *argConnect {
+		app.SelectedCommand = CommandConnect
+		return nil
 	}
 
-	if *argDelete > 0 {
-		cmds["delete"] = int64(*argDelete)
-		return cmds, nil
+	if *argDelete {
+		app.SelectedCommand = CommandDelete
+		return nil
 	}
 
-	if *argUpdate > 0 {
-		cmds["update"] = int64(*argUpdate)
-		return cmds, nil
+	if *argUpdate {
+		app.SelectedCommand = CommandUpdate
+		return nil
 	}
 
-	if *argExport > 0 {
-		cmds["export"] = int64(*argExport)
-		return cmds, nil
+	if *argExport {
+		app.SelectedCommand = CommandExport
+		return nil
 	}
 
-	if len(*argNew) > 0 {
-		if *argNew == "password" {
-			cmds["type"] = int64(database.AuthTypePassword)
-		} else if *argNew == "keyfile" {
-			cmds["type"] = int64(database.AuthTypePrivateKey)
-		} else {
-			return cmds, fmt.Errorf("Could not parse: %s\n", *argNew)
-		}
-		cmds["new"] = 0
-		return cmds, nil
+	if *argNew {
+		app.SelectedCommand = CommandNew
+		return nil
 	}
 
-	return cmds, fmt.Errorf("No command provided. Use 'sshman --help' for more information.")
+	return fmt.Errorf("%+v", parser.Usage(err))
 }
