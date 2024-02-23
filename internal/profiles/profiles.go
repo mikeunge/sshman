@@ -2,11 +2,14 @@ package profiles
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/mikeunge/sshman/internal/database"
 	"github.com/mikeunge/sshman/pkg/helpers"
 	"github.com/mikeunge/sshman/pkg/ssh"
 
+	"atomicgo.dev/keyboard/keys"
 	"github.com/pterm/pterm"
 )
 
@@ -16,7 +19,8 @@ type ProfileService struct {
 
 func (s *ProfileService) NewProfile() error {
 	profile := database.SSHProfile{}
-	user, err := parseAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("User"), func(t string) (string, error) {
+	writer := pterm.DefaultInteractiveTextInput
+	user, err := parseAndVerifyInput(writer.WithDefaultText("User"), func(t string) (string, error) {
 		if len(t) < 1 {
 			return t, fmt.Errorf("User cannot be empty.")
 		} else if len(t) > 50 {
@@ -29,7 +33,7 @@ func (s *ProfileService) NewProfile() error {
 	}
 	profile.User = user
 
-	host, err := parseAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("Host"), func(h string) (string, error) {
+	host, err := parseAndVerifyInput(writer.WithDefaultText("Host"), func(h string) (string, error) {
 		if !helpers.IsValidIp(h) && !helpers.IsValidUrl(h) {
 			return h, fmt.Errorf("Make sure the host is a valid url or ip address.")
 		}
@@ -54,12 +58,12 @@ func (s *ProfileService) NewProfile() error {
 
 	var auth string
 	if authType == database.AuthTypePassword {
-		if auth, err = pterm.DefaultInteractiveTextInput.WithDefaultText("Password").WithMask("*").Show(); err != nil {
+		if auth, err = writer.WithDefaultText("Password").WithMask("*").Show(); err != nil {
 			return err
 		}
 		profile.Password = auth
 	} else {
-		auth, err = parseAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("Keyfile"), func(t string) (string, error) {
+		auth, err = parseAndVerifyInput(writer.WithDefaultText("Keyfile"), func(t string) (string, error) {
 			t = helpers.SanitizePath(t)
 			if !helpers.FileExists(t) {
 				return t, fmt.Errorf("File %s does not exist.", t)
@@ -88,7 +92,7 @@ func (s *ProfileService) NewProfile() error {
 	if _, err := s.DB.CreateSSHProfile(profile); err != nil {
 		return err
 	}
-	pterm.Info.Printf("Successfully created SSH profile")
+	pterm.Info.Printf("Successfully created new ssh profile")
 	return nil
 }
 
@@ -99,14 +103,36 @@ func (s *ProfileService) ProfilesList() error {
 	if profiles, err = s.DB.GetAllSSHProfiles(); err != nil {
 		return err
 	}
-	PrettyPrintProfiles(profiles)
+	prettyPrintProfiles(profiles)
 	return nil
 }
 
 func (s *ProfileService) DeleteProfile() error {
-	if err := s.DB.DeleteSSHProfileById(1); err != nil {
-		return fmt.Errorf("Could not delete Proflile.\n%s", err.Error())
+	var profiles []int64
+	var err error
+
+	if profiles, err = s.selectProfiles(); err != nil || len(profiles) == 0 {
+		if len(profiles) == 0 {
+			return fmt.Errorf("No profiles selected, exiting.")
+		}
+		return err
 	}
+
+	if d, err := pterm.DefaultInteractiveConfirm.WithDefaultText("\nAre you sure?").Show(); err != nil || !d {
+		if !d {
+			pterm.Info.Println("Profile deletion aborted, exiting.")
+			return nil
+		}
+		return err
+	}
+
+	for _, id := range profiles {
+		if err := s.DB.DeleteSSHProfileById(id); err != nil {
+			return fmt.Errorf("Could not delete profile.\n%s", err.Error())
+		}
+	}
+
+	pterm.Info.Printf("Successfully deleted %d profile(s).\n", len(profiles))
 	return nil
 }
 
@@ -128,14 +154,60 @@ func (s *ProfileService) ConnectToSHHWithProfile() error {
 	return nil
 }
 
-func PrettyPrintProfiles(profiles []database.SSHProfile) {
+func prettyPrintProfiles(profiles []database.SSHProfile) {
 	var data [][]string
 	data = append(data, []string{"ID", "User", "Host/IP", "AuthType"}) // define the table header
 	for _, profile := range profiles {
 		authType := database.GetNameFromAuthType(profile.AuthType)
 		data = append(data, []string{fmt.Sprintf("%d", profile.Id), profile.User, profile.Host, authType})
 	}
-	pterm.DefaultTable.WithHasHeader().WithData(data).Render()
+	pterm.DefaultTable.
+		WithHasHeader().
+		WithData(data).
+		Render()
+}
+
+func (s *ProfileService) selectProfiles() ([]int64, error) {
+	var profiles []database.SSHProfile
+	var selectedProfiles []int64
+	var err error
+
+	if profiles, err = s.DB.GetAllSSHProfiles(); err != nil {
+		return selectedProfiles, err
+	}
+
+	var pProfile []string
+	for _, p := range profiles {
+		authType := database.GetNameFromAuthType(p.AuthType)
+		pProfile = append(pProfile, fmt.Sprintf("%d %s %s %s", p.Id, p.Host, p.User, authType))
+	}
+
+	printer := pterm.DefaultInteractiveMultiselect.
+		WithOptions(pProfile).
+		WithFilter(false).
+		WithKeyConfirm(keys.Enter).
+		WithKeySelect(keys.Space).
+		WithCheckmark(&pterm.Checkmark{Checked: pterm.Green("+"), Unchecked: pterm.Red("-")})
+
+	selectedOptions, err := printer.Show()
+	if err != nil {
+		return selectedProfiles, err
+	}
+
+	for _, option := range selectedOptions {
+		id := strings.Split(option, " ")[0]
+		if len(id) == 0 {
+			return selectedProfiles, fmt.Errorf("Could not retrieve id from %s.", option)
+		}
+
+		iId, err := strconv.ParseInt(id, 10, 64)
+		if err != nil {
+			return selectedProfiles, fmt.Errorf("Could not parse id from %s.", option)
+		}
+		selectedProfiles = append(selectedProfiles, iId)
+	}
+
+	return selectedProfiles, nil
 }
 
 type validator func(string) (string, error)
