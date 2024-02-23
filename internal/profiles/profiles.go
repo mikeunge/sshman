@@ -111,7 +111,7 @@ func (s *ProfileService) DeleteProfile() error {
 	var profiles []int64
 	var err error
 
-	if profiles, err = s.selectProfiles(); err != nil || len(profiles) == 0 {
+	if profiles, err = s.selectProfiles("Select profiles to delete", 0); err != nil || len(profiles) == 0 {
 		if len(profiles) == 0 {
 			return fmt.Errorf("No profiles selected, exiting.")
 		}
@@ -167,7 +167,7 @@ func prettyPrintProfiles(profiles []database.SSHProfile) {
 		Render()
 }
 
-func (s *ProfileService) selectProfiles() ([]int64, error) {
+func (s *ProfileService) selectProfiles(t string, maxHeight int) ([]int64, error) {
 	var profiles []database.SSHProfile
 	var selectedProfiles []int64
 	var err error
@@ -176,20 +176,27 @@ func (s *ProfileService) selectProfiles() ([]int64, error) {
 		return selectedProfiles, err
 	}
 
-	var pProfile []string
+	var pProfiles []string
 	for _, p := range profiles {
 		authType := database.GetNameFromAuthType(p.AuthType)
-		pProfile = append(pProfile, fmt.Sprintf("%d %s %s %s", p.Id, p.Host, p.User, authType))
+		pProfiles = append(pProfiles, fmt.Sprintf("%d %s %s %s", p.Id, p.Host, p.User, authType))
 	}
 
-	printer := pterm.DefaultInteractiveMultiselect.
-		WithOptions(pProfile).
+	height := len(pProfiles)
+	if len(pProfiles) > maxHeight && maxHeight > 0 {
+		height = maxHeight
+	}
+
+	selectedOptions, err := pterm.DefaultInteractiveMultiselect.
+		WithDefaultText(t).
+		WithOptions(pProfiles).
+		WithMaxHeight(height).
 		WithFilter(false).
 		WithKeyConfirm(keys.Enter).
 		WithKeySelect(keys.Space).
-		WithCheckmark(&pterm.Checkmark{Checked: pterm.Green("+"), Unchecked: pterm.Red("-")})
+		WithCheckmark(&pterm.Checkmark{Checked: pterm.Green("+"), Unchecked: pterm.Red("-")}).
+		Show()
 
-	selectedOptions, err := printer.Show()
 	if err != nil {
 		return selectedProfiles, err
 	}
