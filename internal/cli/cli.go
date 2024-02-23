@@ -27,9 +27,14 @@ func Cli(app *AppInfo) (Commands, error) {
 	argVersion := parser.Flag("v", "version", &argparse.Options{Required: false, Help: "Prints the version."})
 	argAbout := parser.Flag("", "about", &argparse.Options{Required: false, Help: "Print information about the app."})
 	argList := parser.Flag("l", "list", &argparse.Options{Required: false, Help: "List of all available SSH connections."})
+
 	argConnect := parser.Int("c", "connect", &argparse.Options{Required: false, Help: "Connect to a SSH server. (provide the profile id)"})
 	argNew := parser.Selector("n", "new", []string{"password", "keyfile"}, &argparse.Options{Required: false, Help: "Define what type off SSH profile to create."})
+	argUpdate := parser.Int("u", "update", &argparse.Options{Required: false, Help: "Update a SSH profile. (provide the profile id)"})
+
+	// TODO: maybe refactor to accept an array of integers
 	argDelete := parser.Int("d", "delete", &argparse.Options{Required: false, Help: "Delete a SSH profile. (provide the profile id)"})
+	argExport := parser.Int("e", "export", &argparse.Options{Required: false, Help: "Export a SSH profile. (provide the profile id)"})
 
 	err := parser.Parse(os.Args)
 	if err != nil {
@@ -60,6 +65,16 @@ func Cli(app *AppInfo) (Commands, error) {
 
 	if *argDelete > 0 {
 		cmds["delete"] = int64(*argDelete)
+		return cmds, nil
+	}
+
+	if *argUpdate > 0 {
+		cmds["update"] = int64(*argUpdate)
+		return cmds, nil
+	}
+
+	if *argExport > 0 {
+		cmds["export"] = int64(*argExport)
 		return cmds, nil
 	}
 

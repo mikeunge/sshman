@@ -21,6 +21,16 @@ const (
 	AuthTypePrivateKey SSHProfileAuthType = 1
 )
 
+func GetNamedType(t SSHProfileAuthType) string {
+	if t == AuthTypePassword {
+		return "Password"
+	} else if t == AuthTypePrivateKey {
+		return "Private Key"
+	} else {
+		return "Unknown"
+	}
+}
+
 // SSH profile model
 type SSHProfile struct {
 	Id         int
@@ -59,14 +69,4 @@ func (d *DB) Disconnect() error {
 		return d.db.Close()
 	}
 	return nil
-}
-
-func GetNamedType(t SSHProfileAuthType) string {
-	if t == AuthTypePassword {
-		return "Password"
-	} else if t == AuthTypePrivateKey {
-		return "Private Key"
-	} else {
-		return "Unknown"
-	}
 }

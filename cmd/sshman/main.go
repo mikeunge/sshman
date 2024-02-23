@@ -67,6 +67,18 @@ func main() {
 		os.Exit(0)
 	}
 
+	if _, ok := cmds["export"]; ok {
+		var profileId int64
+		if profileId = cmds["export"]; !ok {
+			handleErrorAndCloseGracefully(err, 1, db)
+		}
+		profile, err := profileService.DB.GetSSHProfileById(profileId)
+		handleErrorAndCloseGracefully(err, 1, db)
+		profiles.PrettyPrintProfiles([]database.SSHProfile{profile})
+		os.Exit(0)
+	}
+
+	// TODO: Update is the same as new (almost), rewrite logic to make sure both workflows are in one func
 	if _, ok := cmds["new"]; ok {
 		profile := database.SSHProfile{}
 		user, err := getAndVerifyInput(pterm.DefaultInteractiveTextInput.WithDefaultText("User"), func(t string) (string, error) {
