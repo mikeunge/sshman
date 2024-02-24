@@ -10,6 +10,7 @@ const (
 	QueryCreateTable = `
   CREATE TABLE IF NOT EXISTS SSH_Profile (
     id INTEGER NOT NULL PRIMARY KEY,
+    alias TEXT NOT NULL UNIQUE,
     host TEXT NOT NULL,
     user TEXT NOT NULL,
     password TEXT,
@@ -22,6 +23,7 @@ const (
 
 func (d *DB) initDatabase() error {
 	var err error
+
 	d.db, err = sql.Open("sqlite3", d.Path)
 	if err != nil {
 		return err

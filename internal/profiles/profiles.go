@@ -21,10 +21,10 @@ func (s *ProfileService) NewProfile() error {
 	profile := database.SSHProfile{}
 	writer := pterm.DefaultInteractiveTextInput
 	user, err := parseAndVerifyInput(writer.WithDefaultText("User"), func(t string) (string, error) {
-		if len(t) < 1 {
+		if len(t) == 0 {
 			return t, fmt.Errorf("User cannot be empty.")
-		} else if len(t) > 50 {
-			return t, fmt.Errorf("Your username is too big.")
+		} else if len(t) > 100 {
+			return t, fmt.Errorf("Your user is too big, 100 characters take it or leave it.")
 		}
 		return t, nil
 	})
@@ -43,6 +43,19 @@ func (s *ProfileService) NewProfile() error {
 		return err
 	}
 	profile.Host = host
+
+	alias, err := parseAndVerifyInput(writer.WithDefaultText("Alias"), func(t string) (string, error) {
+		if len(t) == 0 {
+			return t, fmt.Errorf("Alias cannot be empty.")
+		} else if len(t) > 500 {
+			return t, fmt.Errorf("Ok buddy, 500 characters is enough for an alias don't you think?")
+		}
+		return t, nil
+	})
+	if err != nil {
+		return err
+	}
+	profile.Alias = alias
 
 	authTypeOptions := []string{"Password", "Private Key"}
 	selectedOption, _ := pterm.DefaultInteractiveSelect.WithDefaultText("What kind of authentication do you need?").WithOptions(authTypeOptions).Show()
@@ -81,7 +94,7 @@ func (s *ProfileService) NewProfile() error {
 	if _, err := s.DB.CreateSSHProfile(profile); err != nil {
 		return err
 	}
-	pterm.Info.Printf("Successfully created new ssh profile")
+	pterm.Info.Println("Successfully created new ssh profile")
 	return nil
 }
 
@@ -89,7 +102,10 @@ func (s *ProfileService) ProfilesList() error {
 	var profiles []database.SSHProfile
 	var err error
 
-	if profiles, err = s.DB.GetAllSSHProfiles(); err != nil {
+	if profiles, err = s.DB.GetAllSSHProfiles(); err != nil || len(profiles) == 0 {
+		if len(profiles) == 0 {
+			return fmt.Errorf("No profiles found.")
+		}
 		return err
 	}
 	prettyPrintProfiles(profiles)
@@ -158,7 +174,7 @@ func (s *ProfileService) selectProfiles(t string, maxHeight int) ([]int64, error
 	var pProfiles []string
 	for _, p := range profiles {
 		authType := database.GetNameFromAuthType(p.AuthType)
-		pProfiles = append(pProfiles, fmt.Sprintf("%d %s %s %s", p.Id, p.Host, p.User, authType))
+		pProfiles = append(pProfiles, fmt.Sprintf("%d %s %s %s %s", p.Id, p.Alias, p.Host, p.User, authType))
 	}
 
 	height := len(pProfiles)
@@ -198,7 +214,7 @@ func (s *ProfileService) multiSelectProfiles(t string, maxHeight int) ([]int64, 
 	var pProfiles []string
 	for _, p := range profiles {
 		authType := database.GetNameFromAuthType(p.AuthType)
-		pProfiles = append(pProfiles, fmt.Sprintf("%d %s %s %s", p.Id, p.Host, p.User, authType))
+		pProfiles = append(pProfiles, fmt.Sprintf("ID: %d\t %s %s@%s (%s)", p.Id, p.Alias, p.User, p.Host, authType))
 	}
 
 	height := len(pProfiles)
@@ -224,12 +240,12 @@ func (s *ProfileService) multiSelectProfiles(t string, maxHeight int) ([]int64, 
 
 func prettyPrintProfiles(profiles []database.SSHProfile) {
 	var data [][]string
-	var dFormat = "02.01.2006 15:04"
+	var dFormat = "02.01.2006"
 
-	data = append(data, []string{"ID", "User", "Host/IP", "Authentication", "Created At"}) // define the table header
+	data = append(data, []string{"Id", "Alias", "User", "Host/IP", "Authentication", "Created At"}) // define the table header
 	for _, profile := range profiles {
 		authType := database.GetNameFromAuthType(profile.AuthType)
-		data = append(data, []string{fmt.Sprintf("%d", profile.Id), profile.User, profile.Host, authType, profile.CTime.Format(dFormat)})
+		data = append(data, []string{fmt.Sprintf("%d", profile.Id), profile.Alias, profile.User, profile.Host, authType, profile.CTime.Format(dFormat)})
 	}
 	pterm.DefaultTable.
 		WithHasHeader().

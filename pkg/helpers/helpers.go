@@ -13,7 +13,7 @@ import (
 )
 
 func SanitizePath(path string) string {
-	var sPath string
+	sPath := path
 
 	usr, _ := user.Current()
 	dir := usr.HomeDir
@@ -24,10 +24,7 @@ func SanitizePath(path string) string {
 		sPath = filepath.Join(dir, path[2:])
 	} else if strings.HasPrefix(path, "$HOME/") {
 		sPath = filepath.Join(dir, path[5:])
-	} else {
-		sPath = path
 	}
-
 	return sPath
 }
 
@@ -47,6 +44,29 @@ func PathExists(path string) bool {
 	return true
 }
 
+func PathIsFile(path string) (bool, error) {
+	var err error
+	var info os.FileInfo
+
+	if info, err = os.Stat(path); err != nil {
+		return false, err
+	}
+	if info.IsDir() {
+		return false, nil
+	}
+	return true, nil
+}
+
+func CreatePathIfNotExist(path string) error {
+	if PathExists(path) {
+		return nil
+	}
+	if err := os.MkdirAll(path, os.ModePerm); err != nil {
+		return err
+	}
+	return nil
+}
+
 func GetFileNameWithoutExtension(path string) string {
 	return strings.Split(GetFileName(path), ".")[0]
 }
@@ -62,7 +82,7 @@ func GetFilesInDir(path string) ([]string, error) {
 		return files, fmt.Errorf("path '%s' does not exist", path)
 	}
 
-	// recursivly search for images in provided path
+	// recursivly search for files in provided path
 	err := filepath.WalkDir(path, func(path string, dir fs.DirEntry, err error) error {
 		if !dir.IsDir() {
 			files = append(files, path)

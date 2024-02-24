@@ -45,6 +45,7 @@ func GetAuthTypeFromName(s string) (SSHProfileAuthType, error) {
 // SSH profile model
 type SSHProfile struct {
 	Id         int
+	Alias      string
 	Host       string
 	User       string
 	Password   string
