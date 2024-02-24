@@ -21,7 +21,7 @@ func main() {
 	var app = cli.App{
 		Name:        "sshman",
 		Description: "Easy ssh connection management.",
-		Version:     "1.0.6",
+		Version:     "1.0.7",
 		Author:      "@mikeunge",
 		Github:      "https://github.com/mikeunge/sshman",
 	}
@@ -29,10 +29,10 @@ func main() {
 	err = app.New()
 	handleErrorAndCloseGracefully(err, 1, nil)
 
-	config, err := config.Parse(defaultConfigPath)
+	cfg, err := config.Parse(defaultConfigPath)
 	handleErrorAndCloseGracefully(err, 1, nil)
 
-	db := &database.DB{Path: config.DatabasePath}
+	db := &database.DB{Path: cfg.DatabasePath}
 	err = db.Connect()
 	handleErrorAndCloseGracefully(err, 1, db)
 	profileService := profiles.ProfileService{DB: db}
@@ -69,7 +69,6 @@ func main() {
 // Handle errors & gracefully disconnect from database
 func handleErrorAndCloseGracefully(err error, exitCode int, db *database.DB) {
 	if err != nil {
-		fmt.Println()
 		if db != nil {
 			if e := db.Disconnect(); e != nil {
 				pterm.Error.Printf("%v\n", e)

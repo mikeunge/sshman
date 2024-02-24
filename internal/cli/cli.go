@@ -31,7 +31,7 @@ type App struct {
 
 func (app *App) New() error {
 	parser := argparse.NewParser(app.Name, app.Description)
-	argVersion := parser.Flag("v", "version", &argparse.Options{Required: false, Help: "Prints the version."})
+	argVersion := parser.Flag("", "version", &argparse.Options{Required: false, Help: "Prints the version."})
 	argAbout := parser.Flag("", "about", &argparse.Options{Required: false, Help: "Print information about the app."})
 	argList := parser.Flag("l", "list", &argparse.Options{Required: false, Help: "Connect to a server with profile."})
 	argConnect := parser.Flag("c", "connect", &argparse.Options{Required: false, Help: "Connect to a server with profile."})

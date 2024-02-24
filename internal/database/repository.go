@@ -6,7 +6,7 @@ import (
 )
 
 func (d *DB) CreateSSHProfile(profile SSHProfile) (int64, error) {
-	res, err := d.db.Exec("INSERT INTO SSH_Profile (host, user, password, privateKey, type) VALUES(?, ?, ?, ?, ?);", profile.Host, profile.User, profile.Password, profile.PrivateKey, profile.AuthType)
+	res, err := d.db.Exec("INSERT INTO SSH_Profile (alias, host, user, password, privateKey, type) VALUES(?, ?, ?, ?, ?, ?);", profile.Alias, profile.Host, profile.User, profile.Password, profile.PrivateKey, profile.AuthType)
 	if err != nil {
 		return 0, err
 	}
@@ -22,7 +22,17 @@ func (d *DB) GetSSHProfileById(id int64) (SSHProfile, error) {
 	var profile SSHProfile
 
 	row := d.db.QueryRow("SELECT * FROM SSH_Profile WHERE id=?;", id)
-	if err := row.Scan(&profile.Id, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.AuthType, profile.CTime, &profile.MTime); err == sql.ErrNoRows {
+	if err := row.Scan(&profile.Id, &profile.Alias, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.AuthType, profile.CTime, &profile.MTime); err == sql.ErrNoRows {
+		return SSHProfile{}, err
+	}
+	return profile, nil
+}
+
+func (d *DB) GetSSHProfileByAlias(alias string) (SSHProfile, error) {
+	var profile SSHProfile
+
+	row := d.db.QueryRow("SELECT * FROM SSH_Profile WHERE alias=?;", alias)
+	if err := row.Scan(&profile.Id, &profile.Alias, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.AuthType, profile.CTime, &profile.MTime); err == sql.ErrNoRows {
 		return SSHProfile{}, err
 	}
 	return profile, nil
@@ -48,7 +58,7 @@ func (d *DB) GetSSHProfilesById(ids []int64) ([]SSHProfile, error) {
 
 	for rows.Next() {
 		var profile SSHProfile
-		if err = rows.Scan(&profile.Id, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.AuthType, &profile.CTime, &profile.MTime); err == sql.ErrNoRows {
+		if err = rows.Scan(&profile.Id, &profile.Alias, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.AuthType, &profile.CTime, &profile.MTime); err == sql.ErrNoRows {
 			return profiles, err
 		}
 		profiles = append(profiles, profile)
@@ -67,7 +77,7 @@ func (d *DB) GetAllSSHProfiles() ([]SSHProfile, error) {
 
 	for rows.Next() {
 		var profile SSHProfile
-		if err = rows.Scan(&profile.Id, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.AuthType, &profile.CTime, &profile.MTime); err == sql.ErrNoRows {
+		if err = rows.Scan(&profile.Id, &profile.Alias, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.AuthType, &profile.CTime, &profile.MTime); err == sql.ErrNoRows {
 			return profiles, err
 		}
 		profiles = append(profiles, profile)
@@ -85,13 +95,13 @@ func (d *DB) UpdateSSHProfileById(id int64, updatedProfile SSHProfile) error {
 
 	if updatedProfile.AuthType == AuthTypePrivateKey {
 		auth = string(updatedProfile.PrivateKey)
-		query = "UPDATE SSH_Profile SET host=?, user=?, privateKey=? WHERE id=?;"
+		query = "UPDATE SSH_Profile SET alias=?, host=?, user=?, privateKey=? WHERE id=?;"
 	} else {
 		auth = updatedProfile.Password
-		query = "UPDATE SSH_Profile SET host=?, user=?, password=? WHERE id=?;"
+		query = "UPDATE SSH_Profile SET alias=?, host=?, user=?, password=? WHERE id=?;"
 	}
 
-	if _, err := d.db.Exec(query, updatedProfile.Host, updatedProfile.User, auth, id); err != nil {
+	if _, err := d.db.Exec(query, updatedProfile.Alias, updatedProfile.Host, updatedProfile.User, auth, id); err != nil {
 		return err
 	}
 	return nil
@@ -101,7 +111,7 @@ func (d *DB) DeleteSSHProfileById(id int64) error {
 	var res sql.Result
 	var err error
 
-	if res, err = d.db.Exec("DELETE FROM SSH_Profile WHERE id = ?", id); err != nil {
+	if res, err = d.db.Exec("DELETE FROM SSH_Profile WHERE id=?", id); err != nil {
 		return err
 	}
 
