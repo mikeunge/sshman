@@ -214,7 +214,7 @@ func (s *ProfileService) multiSelectProfiles(t string, maxHeight int) ([]int64, 
 	var pProfiles []string
 	for _, p := range profiles {
 		authType := database.GetNameFromAuthType(p.AuthType)
-		pProfiles = append(pProfiles, fmt.Sprintf("ID: %d\t %s %s@%s (%s)", p.Id, p.Alias, p.User, p.Host, authType))
+		pProfiles = append(pProfiles, fmt.Sprintf("%d %s %s@%s (%s)", p.Id, p.Alias, p.User, p.Host, authType))
 	}
 
 	height := len(pProfiles)
