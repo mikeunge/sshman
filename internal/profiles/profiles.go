@@ -112,11 +112,19 @@ func (s *ProfileService) ProfilesList() error {
 	return nil
 }
 
-func (s *ProfileService) DeleteProfile() error {
-	var profiles []int64
+func (s *ProfileService) DeleteProfile(p string) error {
+	var profileIds []int64
 
-	if profiles, _ = s.multiSelectProfiles("Select profiles to delete", 0); len(profiles) == 0 {
-		return fmt.Errorf("No profiles selected, exiting.")
+	if !profileIsProvided(p) {
+		if profileIds, _ = s.multiSelectProfiles("Select profiles to delete", 0); len(profileIds) == 0 {
+			return fmt.Errorf("No profiles selected, exiting.")
+		}
+	} else {
+		if id, err := parseProfileIdFromArg(p, s); err == nil {
+			profileIds = append(profileIds, id)
+		} else {
+			return err
+		}
 	}
 
 	if d, _ := pterm.DefaultInteractiveConfirm.WithDefaultText("\nAre you sure?").Show(); !d {
@@ -124,26 +132,37 @@ func (s *ProfileService) DeleteProfile() error {
 		return nil
 	}
 
-	for _, id := range profiles {
+	for _, id := range profileIds {
 		if err := s.DB.DeleteSSHProfileById(id); err != nil {
 			return fmt.Errorf("Could not delete profile.\n%s", err.Error())
 		}
 	}
 
-	pterm.Info.Printf("Successfully deleted %d profile(s).\n", len(profiles))
+	pterm.Info.Printf("Successfully deleted %d profile(s).\n", len(profileIds))
 	return nil
 }
 
-func (s *ProfileService) ExportProfile() error {
+func (s *ProfileService) ExportProfile(p string) error {
 	var profileIds []int64
 
-	if profileIds, _ = s.multiSelectProfiles("Select profiles to export", 0); len(profileIds) == 0 {
-		return fmt.Errorf("No profiles selected, exiting.")
+	if !profileIsProvided(p) {
+		if profileIds, _ = s.multiSelectProfiles("Select profiles to export", 0); len(profileIds) == 0 {
+			return fmt.Errorf("No profiles selected, exiting.")
+		}
+	} else {
+		if id, err := parseProfileIdFromArg(p, s); err == nil {
+			profileIds = append(profileIds, id)
+		} else {
+			return err
+		}
 	}
 
 	profiles, err := s.DB.GetSSHProfilesById(profileIds)
 	if err != nil {
 		return err
+	}
+	if len(profiles) == 0 {
+		return fmt.Errorf("No profiles found for exporting.")
 	}
 	pterm.Println()
 	prettyPrintProfiles(profiles)
@@ -151,13 +170,14 @@ func (s *ProfileService) ExportProfile() error {
 	return nil
 }
 
-func (s *ProfileService) ConnectToSHHWithProfile() error {
+func (s *ProfileService) ConnectToSHHWithProfile(p string) error {
 	var profile database.SSHProfile
 	var err error
 
 	if profile, err = s.DB.GetSSHProfileById(1); err != nil {
 		return err
 	}
+
 	pterm.DefaultBasicText.Printf("%+v\n", profile)
 	return nil
 }
@@ -281,6 +301,25 @@ func parseAndVerifyInput(input *pterm.InteractiveTextInputPrinter, verify valida
 		return t, err
 	}
 	return verify(t)
+}
+
+func profileIsProvided(p string) bool {
+	return len(p) > 0
+}
+
+func parseProfileIdFromArg(p string, s *ProfileService) (int64, error) {
+	var profileId int64
+	var err error
+
+	if profileId, err = strconv.ParseInt(p, 10, 64); err == nil {
+		return profileId, nil
+	}
+
+	profile, err := s.DB.GetSSHProfileByAlias(p)
+	if err != nil {
+		return 0, err
+	}
+	return profile.Id, nil
 }
 
 func connectToSSH() error {

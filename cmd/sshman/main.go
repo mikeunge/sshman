@@ -21,7 +21,7 @@ func main() {
 	var app = cli.App{
 		Name:        "sshman",
 		Description: "Easy ssh connection management.",
-		Version:     "1.0.7",
+		Version:     "1.0.8",
 		Author:      "@mikeunge",
 		Github:      "https://github.com/mikeunge/sshman",
 	}
@@ -37,21 +37,21 @@ func main() {
 	handleErrorAndCloseGracefully(err, 1, db)
 	profileService := profiles.ProfileService{DB: db}
 
-	switch app.SelectedCommand {
+	switch app.Args.SelectedCommand {
 	case cli.CommandList:
 		err := profileService.ProfilesList()
 		handleErrorAndCloseGracefully(err, 1, db)
 		break
 	case cli.CommandConnect:
-		err := profileService.ConnectToSHHWithProfile()
+		err := profileService.ConnectToSHHWithProfile(app.Args.AdditionalArgument)
 		handleErrorAndCloseGracefully(err, 1, db)
 		break
 	case cli.CommandDelete:
-		err := profileService.DeleteProfile()
+		err := profileService.DeleteProfile(app.Args.AdditionalArgument)
 		handleErrorAndCloseGracefully(err, 1, db)
 		break
 	case cli.CommandExport:
-		err := profileService.ExportProfile()
+		err := profileService.ExportProfile(app.Args.AdditionalArgument)
 		handleErrorAndCloseGracefully(err, 1, db)
 		break
 	case cli.CommandNew:
