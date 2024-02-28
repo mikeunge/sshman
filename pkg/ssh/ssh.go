@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/melbahja/goph"
+	"github.com/mikeunge/sshman/pkg/helpers"
 )
 
 type SSHServerConfig struct {
@@ -74,5 +75,15 @@ func ConnectSSHServerWithPassword(password string, config SSHServerConfig) error
 		return err
 	}
 	fmt.Println(string(out))
+	return nil
+}
+
+func CreatePrivateKey(path string, data []byte) error {
+	if err := helpers.CreatePathIfNotExist(path); err != nil {
+		return err
+	}
+	if err := helpers.WriteToFile(path, string(data), 0600); err != nil {
+		return err
+	}
 	return nil
 }

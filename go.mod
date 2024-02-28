@@ -3,7 +3,9 @@ module github.com/mikeunge/sshman
 go 1.21.6
 
 require (
+	atomicgo.dev/keyboard v0.2.9
 	github.com/akamensky/argparse v1.4.0
+	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/melbahja/goph v1.4.0
 	github.com/pterm/pterm v0.12.78
@@ -11,7 +13,6 @@ require (
 
 require (
 	atomicgo.dev/cursor v0.2.0 // indirect
-	atomicgo.dev/keyboard v0.2.9 // indirect
 	atomicgo.dev/schedule v0.1.0 // indirect
 	github.com/containerd/console v1.0.3 // indirect
 	github.com/gookit/color v1.5.4 // indirect

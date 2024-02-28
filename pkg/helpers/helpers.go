@@ -58,10 +58,21 @@ func PathIsFile(path string) (bool, error) {
 }
 
 func CreatePathIfNotExist(path string) error {
+	// check if we deal with a path or a filepath
+	if len(strings.Split(GetFileName(path), ".")) > 1 {
+		path = strings.Join(strings.Split(path, "/")[:len(strings.Split(path, "/"))-1], "/")
+	}
 	if PathExists(path) {
 		return nil
 	}
 	if err := os.MkdirAll(path, os.ModePerm); err != nil {
+		return err
+	}
+	return nil
+}
+
+func RemovePath(path string) error {
+	if err := os.Remove(path); err != nil {
 		return err
 	}
 	return nil
@@ -102,8 +113,8 @@ func CreateHash(str string) string {
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
-func WriteToFile(path string, data string) error {
-	return os.WriteFile(path, []byte(data), 0644)
+func WriteToFile(path string, data string, perm os.FileMode) error {
+	return os.WriteFile(path, []byte(data), perm)
 }
 
 func ReadFile(path string) ([]byte, error) {

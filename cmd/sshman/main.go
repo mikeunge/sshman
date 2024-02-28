@@ -21,7 +21,7 @@ func main() {
 	var app = cli.App{
 		Name:        "sshman",
 		Description: "Easy ssh connection management.",
-		Version:     "1.0.8",
+		Version:     "1.0.9",
 		Author:      "@mikeunge",
 		Github:      "https://github.com/mikeunge/sshman",
 	}
@@ -35,7 +35,7 @@ func main() {
 	db := &database.DB{Path: cfg.DatabasePath}
 	err = db.Connect()
 	handleErrorAndCloseGracefully(err, 1, db)
-	profileService := profiles.ProfileService{DB: db}
+	profileService := profiles.ProfileService{DB: db, KeyPath: cfg.PrivateKeyPath}
 
 	switch app.Args.SelectedCommand {
 	case cli.CommandList:

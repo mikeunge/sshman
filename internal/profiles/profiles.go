@@ -2,19 +2,21 @@ package profiles
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/mikeunge/sshman/internal/database"
 	"github.com/mikeunge/sshman/pkg/helpers"
 	"github.com/mikeunge/sshman/pkg/ssh"
 
-	"atomicgo.dev/keyboard/keys"
 	"github.com/pterm/pterm"
 )
 
 type ProfileService struct {
-	DB *database.DB
+	DB      *database.DB
+	KeyPath string
 }
 
 func (s *ProfileService) NewProfile() error {
@@ -172,105 +174,27 @@ func (s *ProfileService) ExportProfile(p string) error {
 
 func (s *ProfileService) ConnectToSHHWithProfile(p string) error {
 	var profile database.SSHProfile
+	var profileId int64
 	var err error
 
-	if profile, err = s.DB.GetSSHProfileById(1); err != nil {
+	if !profileIsProvided(p) {
+		if profileId, err = s.selectProfile("Select profile to connect to", 0); err != nil {
+			return err
+		}
+	} else {
+		if profileId, err = parseProfileIdFromArg(p, s); err != nil {
+			return err
+		}
+	}
+
+	if profile, err = s.DB.GetSSHProfileById(profileId); err != nil {
 		return err
 	}
 
-	pterm.DefaultBasicText.Printf("%+v\n", profile)
+	if err = s.connectToSSH(&profile); err != nil {
+		return err
+	}
 	return nil
-}
-
-func (s *ProfileService) selectProfiles(t string, maxHeight int) ([]int64, error) {
-	var profiles []database.SSHProfile
-	var selectedProfiles []int64
-	var err error
-
-	if profiles, err = s.DB.GetAllSSHProfiles(); err != nil {
-		return selectedProfiles, err
-	}
-
-	var pProfiles []string
-	for _, p := range profiles {
-		authType := database.GetNameFromAuthType(p.AuthType)
-		pProfiles = append(pProfiles, fmt.Sprintf("%d %s %s %s %s", p.Id, p.Alias, p.Host, p.User, authType))
-	}
-
-	height := len(pProfiles)
-	if len(pProfiles) > maxHeight && maxHeight > 0 {
-		height = maxHeight
-	}
-
-	selectedOptions, err := pterm.DefaultInteractiveMultiselect.
-		WithDefaultText(t).
-		WithOptions(pProfiles).
-		WithMaxHeight(height).
-		WithFilter(false).
-		WithKeyConfirm(keys.Enter).
-		WithKeySelect(keys.Space).
-		WithCheckmark(&pterm.Checkmark{Checked: pterm.Green("+"), Unchecked: pterm.Red("-")}).
-		Show()
-
-	if err != nil {
-		return selectedProfiles, err
-	}
-
-	if selectedProfiles, err = parseIdsFromSelectedProfiles(selectedOptions); err != nil {
-		return selectedProfiles, err
-	}
-	return selectedProfiles, nil
-}
-
-func (s *ProfileService) multiSelectProfiles(t string, maxHeight int) ([]int64, error) {
-	var profiles []database.SSHProfile
-	var selectedProfiles []int64
-	var err error
-
-	if profiles, err = s.DB.GetAllSSHProfiles(); err != nil {
-		return selectedProfiles, err
-	}
-
-	var pProfiles []string
-	for _, p := range profiles {
-		authType := database.GetNameFromAuthType(p.AuthType)
-		pProfiles = append(pProfiles, fmt.Sprintf("%d %s %s@%s (%s)", p.Id, p.Alias, p.User, p.Host, authType))
-	}
-
-	height := len(pProfiles)
-	if len(pProfiles) > maxHeight && maxHeight > 0 {
-		height = maxHeight
-	}
-
-	selectedOptions, _ := pterm.DefaultInteractiveMultiselect.
-		WithDefaultText(t).
-		WithOptions(pProfiles).
-		WithMaxHeight(height).
-		WithFilter(false).
-		WithKeyConfirm(keys.Enter).
-		WithKeySelect(keys.Space).
-		WithCheckmark(&pterm.Checkmark{Checked: pterm.Green("+"), Unchecked: pterm.Red("-")}).
-		Show()
-
-	if selectedProfiles, err = parseIdsFromSelectedProfiles(selectedOptions); err != nil {
-		return selectedProfiles, err
-	}
-	return selectedProfiles, nil
-}
-
-func prettyPrintProfiles(profiles []database.SSHProfile) {
-	var data [][]string
-	var dFormat = "02.01.2006"
-
-	data = append(data, []string{"Id", "Alias", "User", "Host/IP", "Authentication", "Created At"}) // define the table header
-	for _, profile := range profiles {
-		authType := database.GetNameFromAuthType(profile.AuthType)
-		data = append(data, []string{fmt.Sprintf("%d", profile.Id), profile.Alias, profile.User, profile.Host, authType, profile.CTime.Format(dFormat)})
-	}
-	pterm.DefaultTable.
-		WithHasHeader().
-		WithData(data).
-		Render()
 }
 
 func parseIdsFromSelectedProfiles(selectedProfiles []string) ([]int64, error) {
@@ -322,11 +246,18 @@ func parseProfileIdFromArg(p string, s *ProfileService) (int64, error) {
 	return profile.Id, nil
 }
 
-func connectToSSH() error {
-	keyfile := "path/to/keyfile"
-	// TODO: make sure secure connection (with known_hosts) works
-	sshServerConfig := ssh.SSHServerConfig{User: "user", Host: "127.0.0.1", SecureConnection: false}
-	if err := ssh.ConnectSSHServerWithPrivateKey(keyfile, "", sshServerConfig); err != nil {
+func (s *ProfileService) connectToSSH(profile *database.SSHProfile) error {
+	tmpPath := filepath.Join(s.KeyPath, fmt.Sprintf("%s.pem", uuid.New().String()))
+	if err := ssh.CreatePrivateKey(tmpPath, profile.PrivateKey); err != nil {
+		return err
+	}
+
+	sshServerConfig := ssh.SSHServerConfig{User: profile.User, Host: profile.Host, SecureConnection: false}
+	if err := ssh.ConnectSSHServerWithPrivateKey(tmpPath, "", sshServerConfig); err != nil {
+		return err
+	}
+
+	if err := helpers.RemovePath(tmpPath); err != nil {
 		return err
 	}
 	return nil
