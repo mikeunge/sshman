@@ -51,7 +51,7 @@ func (app *App) New() error {
 
 	err := parser.Parse(os.Args)
 	if err != nil {
-		return fmt.Errorf("%+v", parser.Usage(err))
+		return fmt.Errorf("Parsing error\n%+v", parser.Usage(err))
 	}
 
 	if *argVersion {
@@ -60,9 +60,14 @@ func (app *App) New() error {
 	}
 
 	if *argAbout {
-		s, _ := pterm.DefaultBigText.WithLetters(putils.LettersFromString(app.Name)).Srender()
+		s, _ := pterm.DefaultBigText.WithLetters(
+			putils.LettersFromStringWithStyle("SSH", pterm.FgRed.ToStyle()),
+			putils.LettersFromStringWithStyle("MAN", pterm.FgWhite.ToStyle())).
+			Srender()
 		pterm.DefaultCenter.Println(s)
-		pterm.DefaultCenter.WithCenterEachLineSeparately().Printf("%s - v%s\n%s\n\nAuthor: %s\nRepository: %s\n", app.Name, app.Version, app.Description, app.Author, app.Github)
+		pterm.DefaultCenter.
+			WithCenterEachLineSeparately().
+			Printf("%s - v%s\n%s\n\n"+pterm.Red("Author:")+" %s\n"+pterm.Red("Repository:")+" %s\n", app.Name, app.Version, app.Description, app.Author, app.Github)
 		os.Exit(0)
 	}
 
@@ -98,7 +103,7 @@ func (app *App) New() error {
 		return nil
 	}
 
-	return fmt.Errorf("%+v", parser.Usage(err))
+	return fmt.Errorf("Parsing error\n%+v", parser.Usage(err))
 }
 
 func parseExtraArguments(alias string, id int) string {
