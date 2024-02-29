@@ -104,6 +104,113 @@ func (s *ProfileService) NewProfile() error {
 	return nil
 }
 
+func (s *ProfileService) UpdateProfile(p string) error {
+	var profile database.SSHProfile
+	var updatedProfile database.SSHProfile
+	var profileId int64
+	var err error
+
+	if !profileIsProvided(p) {
+		if profileId, err = s.selectProfile("Select profile you want to update", 0); err != nil {
+			return err
+		}
+	} else {
+		if profileId, err = parseProfileIdFromArg(p, s); err != nil {
+			return err
+		}
+	}
+
+	if profile, err = s.DB.GetSSHProfileById(profileId); err != nil {
+		return err
+	}
+
+	writer := pterm.DefaultInteractiveTextInput
+	user, err := parseAndVerifyInput(writer.WithDefaultText("User").WithDefaultValue(profile.User), func(t string) (string, error) {
+		if len(t) == 0 {
+			return t, fmt.Errorf("User cannot be empty.")
+		} else if len(t) > 100 {
+			return t, fmt.Errorf("Your user is too big, 100 characters take it or leave it.")
+		}
+		return t, nil
+	})
+	if err != nil {
+		return err
+	}
+	updatedProfile.User = user
+
+	host, err := parseAndVerifyInput(writer.WithDefaultText("Host").WithDefaultValue(profile.Host), func(h string) (string, error) {
+		if !helpers.IsValidIp(h) && !helpers.IsValidUrl(h) {
+			return h, fmt.Errorf("Make sure the host is a valid url or ip address.")
+		}
+		return h, nil
+	})
+	if err != nil {
+		return err
+	}
+	updatedProfile.Host = host
+
+	alias, err := parseAndVerifyInput(writer.WithDefaultText("Alias").WithDefaultValue(profile.Alias), func(t string) (string, error) {
+		if len(t) == 0 {
+			return t, fmt.Errorf("Alias cannot be empty.")
+		} else if len(t) > 500 {
+			return t, fmt.Errorf("Ok buddy, 500 characters is enough for an alias don't you think?")
+		}
+		return t, nil
+	})
+	if err != nil {
+		return err
+	}
+	updatedProfile.Alias = alias
+	updatedProfile.AuthType = profile.AuthType
+
+	var auth string
+	if profile.AuthType == database.AuthTypePassword {
+		pterm.DefaultBasicText.Println("Press enter to keep the original password.")
+		auth, _ = writer.WithDefaultText("Password").WithMask("*").Show()
+		if len(auth) == 0 {
+			updatedProfile.Password = profile.Password
+		} else {
+			updatedProfile.Password = auth
+		}
+	} else {
+		pterm.DefaultBasicText.Println("Press enter to keep the original keyfile.")
+		if auth, err = parseAndVerifyInput(writer.WithDefaultText("Keyfile"), func(t string) (string, error) {
+			if len(t) == 0 {
+				return "", nil
+			}
+
+			t = helpers.SanitizePath(t)
+			if !helpers.FileExists(t) {
+				return t, fmt.Errorf("File %s does not exist.", t)
+			}
+			return t, nil
+		}); err != nil {
+			return err
+		}
+
+		if len(auth) > 0 {
+			data, err := helpers.ReadFile(auth)
+			if err != nil {
+				return err
+			}
+			profile.PrivateKey = data
+		} else {
+			updatedProfile.PrivateKey = profile.PrivateKey
+		}
+	}
+
+	if update, _ := pterm.DefaultInteractiveConfirm.WithDefaultText("\nDo you want to update the profile?").Show(); !update {
+		pterm.Info.Println("Profile update aborted, exiting.")
+		return nil
+	}
+
+	if err := s.DB.UpdateSSHProfileById(profile.Id, updatedProfile); err != nil {
+		return err
+	}
+	pterm.Info.Println("Successfully update profile")
+	return nil
+}
+
 func (s *ProfileService) ProfilesList() error {
 	var profiles []database.SSHProfile
 	var err error

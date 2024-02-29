@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/mikeunge/sshman/internal/cli"
 	"github.com/mikeunge/sshman/internal/database"
@@ -20,8 +21,8 @@ func main() {
 	var err error
 	var app = cli.App{
 		Name:        "sshman",
-		Description: "Easy ssh connection management.",
-		Version:     "1.1.0",
+		Description: "SSH connection management tool.",
+		Version:     "1.1.1",
 		Author:      "@mikeunge",
 		Github:      "https://github.com/mikeunge/sshman",
 	}
@@ -58,6 +59,10 @@ func main() {
 		err := profileService.NewProfile()
 		handleErrorAndCloseGracefully(err, 1, db)
 		break
+	case cli.CommandUpdate:
+		err := profileService.UpdateProfile(app.Args.AdditionalArgument)
+		handleErrorAndCloseGracefully(err, 1, db)
+		break
 	default:
 		handleErrorAndCloseGracefully(fmt.Errorf("Selected command is not valid, exiting."), 10, db)
 		break
@@ -74,7 +79,14 @@ func handleErrorAndCloseGracefully(err error, exitCode int, db *database.DB) {
 				pterm.Error.Printf("%v\n", e)
 			}
 		}
-		pterm.Error.Printf("%v\n", err)
+
+		textArr := strings.Split(err.Error(), "\n")
+		if len(textArr) > 1 {
+			pterm.Error.Printf("%s\n", textArr[0])
+			pterm.DefaultBasicText.Print(strings.Join(textArr[1:], "\n"))
+		} else {
+			pterm.Error.Printf("%s\n", err.Error())
+		}
 		os.Exit(exitCode)
 	}
 }
