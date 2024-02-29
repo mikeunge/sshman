@@ -97,18 +97,22 @@ func (s *ProfileService) NewProfile() error {
 		return nil
 	}
 
-	if _, err := s.DB.CreateSSHProfile(profile); err != nil {
+	id, err := s.DB.CreateSSHProfile(profile)
+	if err != nil {
 		return err
 	}
-	pterm.Info.Println("Successfully created new ssh profile")
+	pterm.Info.Printf("Successfully created profile: %d %s", id, profile.Alias)
 	return nil
 }
 
 func (s *ProfileService) UpdateProfile(p string) error {
-	var profile database.SSHProfile
-	var updatedProfile database.SSHProfile
-	var profileId int64
-	var err error
+	var (
+		profile        database.SSHProfile
+		updatedProfile database.SSHProfile
+		updatedEntries uint8 = 0
+		profileId      int64
+		err            error
+	)
 
 	if !profileIsProvided(p) {
 		if profileId, err = s.selectProfile("Select profile you want to update", 0); err != nil {
@@ -124,12 +128,16 @@ func (s *ProfileService) UpdateProfile(p string) error {
 		return err
 	}
 
+	pterm.DefaultBasicText.Printf("Updating: %d %s\n", profile.Id, profile.Alias)
 	writer := pterm.DefaultInteractiveTextInput
 	user, err := parseAndVerifyInput(writer.WithDefaultText("User").WithDefaultValue(profile.User), func(t string) (string, error) {
 		if len(t) == 0 {
 			return t, fmt.Errorf("User cannot be empty.")
 		} else if len(t) > 100 {
 			return t, fmt.Errorf("Your user is too big, 100 characters take it or leave it.")
+		}
+		if t != profile.User {
+			updatedEntries++
 		}
 		return t, nil
 	})
@@ -155,6 +163,9 @@ func (s *ProfileService) UpdateProfile(p string) error {
 		} else if len(t) > 500 {
 			return t, fmt.Errorf("Ok buddy, 500 characters is enough for an alias don't you think?")
 		}
+		if t != profile.Alias {
+			updatedEntries++
+		}
 		return t, nil
 	})
 	if err != nil {
@@ -171,6 +182,7 @@ func (s *ProfileService) UpdateProfile(p string) error {
 			updatedProfile.Password = profile.Password
 		} else {
 			updatedProfile.Password = auth
+			updatedEntries++
 		}
 	} else {
 		pterm.DefaultBasicText.Println("Press enter to keep the original keyfile.")
@@ -194,9 +206,15 @@ func (s *ProfileService) UpdateProfile(p string) error {
 				return err
 			}
 			profile.PrivateKey = data
+			updatedEntries++
 		} else {
 			updatedProfile.PrivateKey = profile.PrivateKey
 		}
+	}
+
+	if updatedEntries == 0 {
+		pterm.Info.Println("Nothing was updated, exiting.")
+		return nil
 	}
 
 	if update, _ := pterm.DefaultInteractiveConfirm.WithDefaultText("\nDo you want to update the profile?").Show(); !update {
@@ -284,9 +302,11 @@ func (s *ProfileService) ExportProfile(p string) error {
 }
 
 func (s *ProfileService) ConnectToSHHWithProfile(p string) error {
-	var profile database.SSHProfile
-	var profileId int64
-	var err error
+	var (
+		profile   database.SSHProfile
+		profileId int64
+		err       error
+	)
 
 	if !profileIsProvided(p) {
 		if profileId, err = s.selectProfile("Select profile to connect to", 0); err != nil {
