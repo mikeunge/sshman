@@ -56,7 +56,7 @@ func (s *ProfileService) selectProfile(t string, maxHeight int) (int64, error) {
 	var pProfiles []string
 	for _, p := range profiles {
 		authType := database.GetNameFromAuthType(p.AuthType)
-		pProfiles = append(pProfiles, fmt.Sprintf("%d %s %s %s %s", p.Id, p.Alias, p.Host, p.User, authType))
+		pProfiles = append(pProfiles, fmt.Sprintf("%d %s %s@%s (%s)", p.Id, p.Alias, p.User, p.Host, authType))
 	}
 
 	height := len(pProfiles)
