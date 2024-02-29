@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
-	"strings"
 
 	"github.com/mikeunge/sshman/pkg/helpers"
 )
@@ -73,11 +72,6 @@ func (c *Config) validatePaths(objectNames []string, createIfNotExist bool) erro
 			continue
 		} else if !helpers.PathExists(objValue) && !createIfNotExist {
 			continue
-		}
-
-		// check if we deal with a path or a filepath
-		if len(strings.Split(helpers.GetFileName(objValue), ".")) > 1 {
-			objValue = strings.Join(strings.Split(objValue, "/")[:len(strings.Split(objValue, "/"))-1], "/")
 		}
 
 		if err := helpers.CreatePathIfNotExist(objValue); err != nil {
