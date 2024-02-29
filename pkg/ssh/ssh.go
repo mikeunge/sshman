@@ -1,9 +1,9 @@
 package ssh
 
 import (
-	"github.com/melbahja/goph"
-
 	"github.com/mikeunge/sshman/pkg/helpers"
+
+	"github.com/melbahja/goph"
 )
 
 type SSHServer struct {

@@ -5,7 +5,6 @@ go 1.21.6
 require (
 	atomicgo.dev/keyboard v0.2.9
 	github.com/akamensky/argparse v1.4.0
-	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/melbahja/goph v1.4.0
 	github.com/pterm/pterm v0.12.78

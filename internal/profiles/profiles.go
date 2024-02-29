@@ -3,6 +3,7 @@ package profiles
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -10,7 +11,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/google/uuid"
 	"github.com/mikeunge/sshman/internal/database"
 	"github.com/mikeunge/sshman/pkg/helpers"
 	"github.com/mikeunge/sshman/pkg/ssh"
@@ -381,7 +381,7 @@ func (s *ProfileService) connectToSSH(profile *database.SSHProfile) error {
 	server := ssh.SSHServer{User: profile.User, Host: profile.Host, SecureConnection: false}
 
 	if profile.AuthType == database.AuthTypePrivateKey {
-		tmpPath := filepath.Join(s.KeyPath, fmt.Sprintf("%s.pem", uuid.New().String()))
+		tmpPath := filepath.Join(s.KeyPath, fmt.Sprintf("%d.pem", rand.Int()))
 		if err := ssh.CreatePrivateKey(tmpPath, profile.PrivateKey); err != nil {
 			return err
 		}
