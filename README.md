@@ -1,5 +1,7 @@
 # SSHMan - SSH connection manager
 
+![Logo](https://github.com/mikeunge/sshman/blob/master/assets/logo.png?raw=true)
+
 > Manage multiple SSH connections with the help of profiles.
 
 ## About
