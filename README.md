@@ -33,5 +33,5 @@ Available Options:
 ```
 ## Special thanks
 
-- Thanks to [@atotto](https://gist.github.com/atotto/ba19155295d95c8d75881e145c751372) for this genius gist.
+- [@atotto](https://gist.github.com/atotto/ba19155295d95c8d75881e145c751372) for this genius gist
 
