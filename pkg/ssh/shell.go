@@ -13,7 +13,6 @@ func (s *SSHServer) SpawnShell(ctx context.Context) error {
 	if s.Client == nil {
 		return fmt.Errorf("Client is not initialized, exiting.")
 	}
-	defer s.Client.Close()
 
 	session, err := s.Client.NewSession()
 	if err != nil {

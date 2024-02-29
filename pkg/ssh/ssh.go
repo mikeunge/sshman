@@ -47,13 +47,6 @@ func (s *SSHServer) ConnectSSHServerWithPrivateKey(privateKeyFilePath string) er
 		return err
 	}
 	s.Client = client
-
-	/*
-		out, err := client.Run("ls /tmp/")
-		if err != nil {
-			return session, err
-		}
-	*/
 	return nil
 }
 
