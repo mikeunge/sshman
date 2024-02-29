@@ -1,10 +1,14 @@
 package profiles
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/google/uuid"
 	"github.com/mikeunge/sshman/internal/database"
@@ -247,18 +251,39 @@ func parseProfileIdFromArg(p string, s *ProfileService) (int64, error) {
 }
 
 func (s *ProfileService) connectToSSH(profile *database.SSHProfile) error {
-	tmpPath := filepath.Join(s.KeyPath, fmt.Sprintf("%s.pem", uuid.New().String()))
-	if err := ssh.CreatePrivateKey(tmpPath, profile.PrivateKey); err != nil {
-		return err
+	server := ssh.SSHServer{User: profile.User, Host: profile.Host, SecureConnection: false}
+
+	if profile.AuthType == database.AuthTypePrivateKey {
+		tmpPath := filepath.Join(s.KeyPath, fmt.Sprintf("%s.pem", uuid.New().String()))
+		if err := ssh.CreatePrivateKey(tmpPath, profile.PrivateKey); err != nil {
+			return err
+		}
+		if err := server.ConnectSSHServerWithPrivateKey(tmpPath); err != nil {
+			return err
+		}
+		defer helpers.RemovePath(tmpPath)
+	} else {
+		if err := server.ConnectSSHServerWithPassword(profile.Password); err != nil {
+			return err
+		}
 	}
 
-	sshServerConfig := ssh.SSHServerConfig{User: profile.User, Host: profile.Host, SecureConnection: false}
-	if err := ssh.ConnectSSHServerWithPrivateKey(tmpPath, "", sshServerConfig); err != nil {
-		return err
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		if err := server.SpawnShell(ctx); err != nil {
+			fmt.Print(err)
+		}
+		cancel()
+	}()
+
+	select {
+	case <-sig:
+		cancel()
+	case <-ctx.Done():
 	}
 
-	if err := helpers.RemovePath(tmpPath); err != nil {
-		return err
-	}
 	return nil
 }

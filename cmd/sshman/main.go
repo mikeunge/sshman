@@ -21,7 +21,7 @@ func main() {
 	var app = cli.App{
 		Name:        "sshman",
 		Description: "Easy ssh connection management.",
-		Version:     "1.0.9",
+		Version:     "1.1.0",
 		Author:      "@mikeunge",
 		Github:      "https://github.com/mikeunge/sshman",
 	}
