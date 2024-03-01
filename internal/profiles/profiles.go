@@ -15,6 +15,7 @@ import (
 	"github.com/mikeunge/sshman/pkg/helpers"
 	"github.com/mikeunge/sshman/pkg/ssh"
 
+	input_autocomplete "github.com/JoaoDanielRufino/go-input-autocomplete"
 	"github.com/pterm/pterm"
 )
 
@@ -25,7 +26,7 @@ type ProfileService struct {
 
 func (s *ProfileService) NewProfile() error {
 	profile := database.SSHProfile{}
-	writer := pterm.DefaultInteractiveTextInput
+	writer := pterm.DefaultInteractiveTextInput.WithTextStyle(pterm.NewStyle(pterm.FgDefault))
 	user, err := parseAndVerifyInput(writer.WithDefaultText("User"), func(t string) (string, error) {
 		if len(t) == 0 {
 			return t, fmt.Errorf("User cannot be empty.")
@@ -76,14 +77,11 @@ func (s *ProfileService) NewProfile() error {
 		auth, _ = writer.WithDefaultText("Password").WithMask("*").Show()
 		profile.Password = auth
 	} else {
-		if auth, err = parseAndVerifyInput(writer.WithDefaultText("Keyfile"), func(t string) (string, error) {
-			t = helpers.SanitizePath(t)
-			if !helpers.FileExists(t) {
-				return t, fmt.Errorf("File %s does not exist.", t)
-			}
-			return t, nil
-		}); err != nil {
+		if auth, err = input_autocomplete.Read("Path to keyfile: "); err != nil {
 			return err
+		}
+		if !helpers.FileExists(helpers.SanitizePath(auth)) {
+			return fmt.Errorf("File %s does not exist.", auth)
 		}
 		data, err := helpers.ReadFile(auth)
 		if err != nil {
@@ -186,19 +184,17 @@ func (s *ProfileService) UpdateProfile(p string) error {
 		}
 	} else {
 		pterm.DefaultBasicText.Println("Press enter to keep the original keyfile.")
-		if auth, err = parseAndVerifyInput(writer.WithDefaultText("Keyfile"), func(t string) (string, error) {
-			if len(t) == 0 {
-				return "", nil
-			}
-
-			t = helpers.SanitizePath(t)
-			if !helpers.FileExists(t) {
-				return t, fmt.Errorf("File %s does not exist.", t)
-			}
-			return t, nil
-		}); err != nil {
+		if auth, err = input_autocomplete.Read("Path to keyfile: "); err != nil {
 			return err
 		}
+		if !helpers.FileExists(helpers.SanitizePath(auth)) {
+			return fmt.Errorf("File %s does not exist.", auth)
+		}
+		data, err := helpers.ReadFile(auth)
+		if err != nil {
+			return err
+		}
+		profile.PrivateKey = data
 
 		if len(auth) > 0 {
 			data, err := helpers.ReadFile(auth)
