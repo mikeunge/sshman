@@ -1,5 +1,6 @@
 {
   "databasepath": "~/.local/share/sshman/ssh.db",
   "logpath": "~/.local/share/sshman/sshman.log",
-  "privateKeyPath": "~/.local/share/sshman/keys/"
+  "privateKeyPath": "~/.local/share/sshman/keys/",
+  "maskInput": true
 }

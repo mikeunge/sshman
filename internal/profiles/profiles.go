@@ -20,8 +20,9 @@ import (
 )
 
 type ProfileService struct {
-	DB      *database.DB
-	KeyPath string
+	DB        *database.DB
+	KeyPath   string
+	MaskInput bool
 }
 
 func (s *ProfileService) NewProfile() error {
@@ -74,7 +75,12 @@ func (s *ProfileService) NewProfile() error {
 
 	var auth string
 	if authType == database.AuthTypePassword {
-		auth, _ = writer.WithDefaultText("Password").WithMask("*").Show()
+		input := writer.WithDefaultText("Password")
+		if s.MaskInput {
+			input.WithMask("*")
+		}
+
+		auth, _ = input.Show()
 		profile.Password = auth
 	} else {
 		if auth, err = input_autocomplete.Read("Path to keyfile: "); err != nil {
@@ -99,7 +105,7 @@ func (s *ProfileService) NewProfile() error {
 	if err != nil {
 		return err
 	}
-	pterm.Info.Printf("Successfully created profile: %d %s", id, profile.Alias)
+	pterm.Info.Printf("Successfully created profile: %d %s\n", id, profile.Alias)
 	return nil
 }
 
@@ -175,7 +181,12 @@ func (s *ProfileService) UpdateProfile(p string) error {
 	var auth string
 	if profile.AuthType == database.AuthTypePassword {
 		pterm.DefaultBasicText.Println("Press enter to keep the original password.")
-		auth, _ = writer.WithDefaultText("Password").WithMask("*").Show()
+		input := writer.WithDefaultText("Password")
+		if s.MaskInput {
+			input.WithMask("*")
+		}
+
+		auth, _ = input.Show()
 		if len(auth) == 0 {
 			updatedProfile.Password = profile.Password
 		} else {

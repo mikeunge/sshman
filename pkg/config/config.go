@@ -13,12 +13,14 @@ const (
 	defaultDatabasePath   = "~/.local/share/sshman/sshman.db"
 	defaultLoggingPath    = "~/.local/share/sshman/sshman.log"
 	defaultPrivateKeyPath = "~/.local/share/sshman/keys/"
+	defaultMaskInput      = true
 )
 
 type Config struct {
 	DatabasePath   string `json:"databasepath"`
 	LoggingPath    string `json:"logpath"`
 	PrivateKeyPath string `json:"privateKeyPath"`
+	MaskInput      bool   `json:"maskPasswordInput"`
 }
 
 // Paths to validate
@@ -86,6 +88,7 @@ func defaultConfig() Config {
 		DatabasePath:   defaultDatabasePath,
 		LoggingPath:    defaultLoggingPath,
 		PrivateKeyPath: defaultPrivateKeyPath,
+		MaskInput:      defaultMaskInput,
 	}
 	config.sanitizeConfigPaths()
 	config.validatePaths(PathsToValidate, true)
