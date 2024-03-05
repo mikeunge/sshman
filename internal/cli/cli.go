@@ -20,6 +20,7 @@ const (
 	CommandExport  Command = 5
 )
 
+// TODO: change the additional arguments - maybe parse like key value pairs
 type Arguments struct {
 	SelectedCommand    Command
 	AdditionalArgument string
@@ -42,6 +43,7 @@ func (app *App) New() error {
 
 	argConnect := parser.Flag("c", "connect", &argparse.Options{Required: false, Help: "Connect to a server with profile."})
 	argNew := parser.Flag("n", "new", &argparse.Options{Required: false, Help: "Create a new SSH profile."})
+	argEncrypt := parser.Flag("", "encrypt", &argparse.Options{Required: false, Help: "Encrypt the password/private key."})
 	argUpdate := parser.Flag("u", "update", &argparse.Options{Required: false, Help: "Update an SSH profile."})
 	argDelete := parser.Flag("d", "delete", &argparse.Options{Required: false, Help: "Delete SSH profiles."})
 	argExport := parser.Flag("e", "export", &argparse.Options{Required: false, Help: "Export profiles (for eg. sharing)."})
@@ -99,6 +101,10 @@ func (app *App) New() error {
 	}
 
 	if *argNew {
+		// Encryption can only be set when creating a new key
+		if *argEncrypt {
+			app.Args.AdditionalArgument = "encrypt"
+		}
 		app.Args.SelectedCommand = CommandNew
 		return nil
 	}

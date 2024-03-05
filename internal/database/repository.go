@@ -7,7 +7,7 @@ import (
 )
 
 func (d *DB) CreateSSHProfile(profile SSHProfile) (int64, error) {
-	res, err := d.db.Exec("INSERT INTO SSH_Profile (alias, host, user, password, privateKey, type) VALUES(?, ?, ?, ?, ?, ?);", profile.Alias, profile.Host, profile.User, profile.Password, profile.PrivateKey, profile.AuthType)
+	res, err := d.db.Exec("INSERT INTO SSH_Profile (alias, host, user, password, privateKey, type, encrypted) VALUES(?, ?, ?, ?, ?, ?, ?);", profile.Alias, profile.Host, profile.User, profile.Password, profile.PrivateKey, profile.AuthType, profile.Encrypted)
 	if err != nil {
 		return 0, err
 	}
@@ -23,7 +23,7 @@ func (d *DB) GetSSHProfileById(id int64) (SSHProfile, error) {
 	var profile SSHProfile
 
 	row := d.db.QueryRow("SELECT * FROM SSH_Profile WHERE id=?;", id)
-	if err := row.Scan(&profile.Id, &profile.Alias, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.AuthType, profile.CTime, &profile.MTime); err == sql.ErrNoRows {
+	if err := row.Scan(&profile.Id, &profile.Alias, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.AuthType, &profile.Encrypted, profile.CTime, &profile.MTime); err == sql.ErrNoRows {
 		return SSHProfile{}, err
 	}
 	return profile, nil
@@ -33,7 +33,7 @@ func (d *DB) GetSSHProfileByAlias(alias string) (SSHProfile, error) {
 	var profile SSHProfile
 
 	row := d.db.QueryRow("SELECT * FROM SSH_Profile WHERE alias=?;", alias)
-	if err := row.Scan(&profile.Id, &profile.Alias, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.AuthType, profile.CTime, &profile.MTime); err == sql.ErrNoRows {
+	if err := row.Scan(&profile.Id, &profile.Alias, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.AuthType, &profile.Encrypted, profile.CTime, &profile.MTime); err == sql.ErrNoRows {
 		return SSHProfile{}, err
 	}
 	return profile, nil
@@ -59,7 +59,7 @@ func (d *DB) GetSSHProfilesById(ids []int64) ([]SSHProfile, error) {
 
 	for rows.Next() {
 		var profile SSHProfile
-		if err = rows.Scan(&profile.Id, &profile.Alias, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.AuthType, &profile.CTime, &profile.MTime); err == sql.ErrNoRows {
+		if err = rows.Scan(&profile.Id, &profile.Alias, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.AuthType, &profile.Encrypted, &profile.CTime, &profile.MTime); err == sql.ErrNoRows {
 			return profiles, err
 		}
 		profiles = append(profiles, profile)
@@ -78,7 +78,7 @@ func (d *DB) GetAllSSHProfiles() ([]SSHProfile, error) {
 
 	for rows.Next() {
 		var profile SSHProfile
-		if err = rows.Scan(&profile.Id, &profile.Alias, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.AuthType, &profile.CTime, &profile.MTime); err == sql.ErrNoRows {
+		if err = rows.Scan(&profile.Id, &profile.Alias, &profile.Host, &profile.User, &profile.Password, &profile.PrivateKey, &profile.AuthType, &profile.Encrypted, &profile.CTime, &profile.MTime); err == sql.ErrNoRows {
 			return profiles, err
 		}
 		profiles = append(profiles, profile)

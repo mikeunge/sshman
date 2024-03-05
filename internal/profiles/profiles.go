@@ -24,7 +24,7 @@ type ProfileService struct {
 	KeyPath string
 }
 
-func (s *ProfileService) NewProfile() error {
+func (s *ProfileService) NewProfile(encrypt bool) error {
 	profile := database.SSHProfile{}
 	writer := pterm.DefaultInteractiveTextInput.WithTextStyle(pterm.NewStyle(pterm.FgDefault))
 	user, err := parseAndVerifyInput(writer.WithDefaultText("User"), func(t string) (string, error) {
@@ -74,7 +74,23 @@ func (s *ProfileService) NewProfile() error {
 
 	var auth string
 	if authType == database.AuthTypePassword {
-		auth, _ = writer.WithDefaultText("Password").WithMask("*").Show()
+		auth, err = parseAndVerifyInput(writer.WithDefaultText("Password").WithMask("*"), func(t string) (string, error) {
+			if len(t) == 0 {
+				return t, fmt.Errorf("Password cannot be empty.")
+			}
+			return t, nil
+		})
+		if err != nil {
+			return err
+		}
+		if encrypt {
+			encKey, _ := writer.WithDefaultText("Encyption key").WithMask("*").Show()
+			hash := helpers.CreateHash(encKey)
+			if auth, err = helpers.EncryptString(auth, hash); err != nil {
+				return err
+			}
+			profile.Encrypted = true
+		}
 		profile.Password = auth
 	} else {
 		if auth, err = input_autocomplete.Read("Path to keyfile: "); err != nil {
@@ -86,6 +102,17 @@ func (s *ProfileService) NewProfile() error {
 		data, err := helpers.ReadFile(auth)
 		if err != nil {
 			return err
+		}
+
+		if encrypt {
+			encKey, _ := writer.WithDefaultText("Encyption key").WithMask("*").Show()
+			hash := helpers.CreateHash(encKey)
+			if encData, err := helpers.EncryptString(string(data), hash); err != nil {
+				return err
+			} else {
+				data = []byte(encData)
+			}
+			profile.Encrypted = true
 		}
 		profile.PrivateKey = data
 	}
@@ -110,6 +137,7 @@ func (s *ProfileService) UpdateProfile(p string) error {
 		updatedEntries uint8 = 0
 		profileId      int64
 		err            error
+		oriEncKey      string
 	)
 
 	if !profileIsProvided(p) {
@@ -128,6 +156,21 @@ func (s *ProfileService) UpdateProfile(p string) error {
 
 	pterm.DefaultBasicText.Printf("Updating: %d %s\n", profile.Id, profile.Alias)
 	writer := pterm.DefaultInteractiveTextInput
+
+	if profile.Encrypted {
+		oriEncKey, _ := pterm.DefaultInteractiveTextInput.WithTextStyle(pterm.NewStyle(pterm.FgDefault)).WithDefaultText("Encyption key").WithMask("*").Show()
+		hash := helpers.CreateHash(oriEncKey)
+		if profile.AuthType == database.AuthTypePassword {
+			if _, err = helpers.DecryptString(profile.Password, hash); err != nil {
+				return err
+			}
+		} else {
+			if _, err = helpers.DecryptString(string(profile.PrivateKey), hash); err != nil {
+				return err
+			}
+		}
+	}
+
 	user, err := parseAndVerifyInput(writer.WithDefaultText("User").WithDefaultValue(profile.User), func(t string) (string, error) {
 		if len(t) == 0 {
 			return t, fmt.Errorf("User cannot be empty.")
@@ -179,6 +222,17 @@ func (s *ProfileService) UpdateProfile(p string) error {
 		if len(auth) == 0 {
 			updatedProfile.Password = profile.Password
 		} else {
+			if profile.Encrypted {
+				pterm.DefaultBasicText.Println("Press enter to keep the original encryption key.")
+				encKey, _ := writer.WithDefaultText("(New) Encyption key").WithMask("*").Show()
+				if len(encKey) == 0 {
+					encKey = oriEncKey
+				}
+				hash := helpers.CreateHash(encKey)
+				if auth, err = helpers.EncryptString(auth, hash); err != nil {
+					return err
+				}
+			}
 			updatedProfile.Password = auth
 			updatedEntries++
 		}
@@ -187,21 +241,28 @@ func (s *ProfileService) UpdateProfile(p string) error {
 		if auth, err = input_autocomplete.Read("Path to keyfile: "); err != nil {
 			return err
 		}
-		if !helpers.FileExists(helpers.SanitizePath(auth)) {
-			return fmt.Errorf("File %s does not exist.", auth)
-		}
-		data, err := helpers.ReadFile(auth)
-		if err != nil {
-			return err
-		}
-		profile.PrivateKey = data
-
 		if len(auth) > 0 {
+			if !helpers.FileExists(helpers.SanitizePath(auth)) {
+				return fmt.Errorf("File %s does not exist.", auth)
+			}
 			data, err := helpers.ReadFile(auth)
 			if err != nil {
 				return err
 			}
-			profile.PrivateKey = data
+			if profile.Encrypted {
+				pterm.DefaultBasicText.Println("Press enter to keep the original encryption key.")
+				encKey, _ := writer.WithDefaultText("(New) Encyption key").WithMask("*").Show()
+				if len(encKey) == 0 {
+					encKey = oriEncKey
+				}
+				hash := helpers.CreateHash(encKey)
+				if encData, err := helpers.EncryptString(string(data), hash); err != nil {
+					return err
+				} else {
+					data = []byte(encData)
+				}
+			}
+			updatedProfile.PrivateKey = data
 			updatedEntries++
 		} else {
 			updatedProfile.PrivateKey = profile.PrivateKey
@@ -316,6 +377,22 @@ func (s *ProfileService) ConnectToSHHWithProfile(p string) error {
 
 	if profile, err = s.DB.GetSSHProfileById(profileId); err != nil {
 		return err
+	}
+
+	if profile.Encrypted {
+		encKey, _ := pterm.DefaultInteractiveTextInput.WithTextStyle(pterm.NewStyle(pterm.FgDefault)).WithDefaultText("Encyption key").WithMask("*").Show()
+		hash := helpers.CreateHash(encKey)
+		if profile.AuthType == database.AuthTypePassword {
+			if profile.Password, err = helpers.DecryptString(profile.Password, hash); err != nil {
+				return err
+			}
+		} else {
+			if decryptedPrivateKey, err := helpers.DecryptString(string(profile.PrivateKey), hash); err != nil {
+				return err
+			} else {
+				profile.PrivateKey = []byte(decryptedPrivateKey)
+			}
+		}
 	}
 
 	if err = s.connectToSSH(&profile); err != nil {
