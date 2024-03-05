@@ -22,7 +22,7 @@ func main() {
 	var app = cli.App{
 		Name:        "sshman",
 		Description: "SSH connection management tool.",
-		Version:     "1.1.1",
+		Version:     "1.1.2",
 		Author:      "@mikeunge",
 		Github:      "https://github.com/mikeunge/sshman",
 	}
@@ -56,7 +56,11 @@ func main() {
 		handleErrorAndCloseGracefully(err, 1, db)
 		break
 	case cli.CommandNew:
-		err := profileService.NewProfile()
+		enc := false
+		if app.Args.AdditionalArgument == "encrypt" {
+			enc = true
+		}
+		err := profileService.NewProfile(enc)
 		handleErrorAndCloseGracefully(err, 1, db)
 		break
 	case cli.CommandUpdate:

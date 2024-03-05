@@ -15,7 +15,8 @@ const (
     user TEXT NOT NULL,
     password TEXT,
     privateKey BLOB,
-    type INTEGER NOT NULL,
+    type TINYINT NOT NULL,
+    encrypted BOOLEAN NOT NULL DEFAULT 0,
     ctime DATETIME DEFAULT CURRENT_TIMESTAMP,
     mtime DATETIME DEFAULT CURRENT_TIMESTAMP
   );`

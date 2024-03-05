@@ -51,6 +51,7 @@ type SSHProfile struct {
 	Password   string
 	PrivateKey []byte
 	AuthType   SSHProfileAuthType
+	Encrypted  bool
 	CTime      time.Time
 	MTime      time.Time
 }
