@@ -26,8 +26,25 @@ type ProfileService struct {
 }
 
 func (s *ProfileService) NewProfile(encrypt bool) error {
-	profile := database.SSHProfile{}
+	var (
+		encKey  string
+		profile database.SSHProfile
+	)
+
+	pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.Bold)).Println("Creating new ssh profile")
 	writer := pterm.DefaultInteractiveTextInput.WithTextStyle(pterm.NewStyle(pterm.FgDefault))
+
+	if encrypt {
+		writer.DefaultText = "Encryption key"
+		if s.MaskInput {
+			writer.Mask = "*"
+		}
+		encKey, _ = writer.Show()
+		encKey = helpers.CreateHash(encKey)
+		profile.Encrypted = true
+		writer.Mask = ""
+	}
+
 	user, err := parseAndVerifyInput(writer.WithDefaultText("User"), func(t string) (string, error) {
 		if len(t) == 0 {
 			return t, fmt.Errorf("User cannot be empty.")
@@ -88,13 +105,12 @@ func (s *ProfileService) NewProfile(encrypt bool) error {
 		if err != nil {
 			return err
 		}
+
 		if encrypt {
-			encKey, _ := writer.WithDefaultText("Encyption key").WithMask("*").Show()
-			hash := helpers.CreateHash(encKey)
-			if auth, err = helpers.EncryptString(auth, hash); err != nil {
+			auth, err = helpers.EncryptString(auth, encKey)
+			if err != nil {
 				return err
 			}
-			profile.Encrypted = true
 		}
 		profile.Password = auth
 	} else {
@@ -108,21 +124,18 @@ func (s *ProfileService) NewProfile(encrypt bool) error {
 		if err != nil {
 			return err
 		}
-
 		if encrypt {
-			encKey, _ := writer.WithDefaultText("Encyption key").WithMask("*").Show()
-			hash := helpers.CreateHash(encKey)
-			if encData, err := helpers.EncryptString(string(data), hash); err != nil {
+			if encData, err := helpers.EncryptString(string(data), encKey); err != nil {
 				return err
 			} else {
 				data = []byte(encData)
 			}
-			profile.Encrypted = true
 		}
 		profile.PrivateKey = data
 	}
 
 	if create, _ := pterm.DefaultInteractiveConfirm.WithDefaultText("\nCreate new profile?").Show(); !create {
+		fmt.Println()
 		pterm.Info.Println("Profile creation aborted, exiting.")
 		return nil
 	}
@@ -131,7 +144,8 @@ func (s *ProfileService) NewProfile(encrypt bool) error {
 	if err != nil {
 		return err
 	}
-	pterm.Info.Printf("Successfully created profile: %d %s\n", id, profile.Alias)
+	fmt.Println()
+	pterm.Info.Printf("Successfully created profile: ID %d - %s\n", id, profile.Alias)
 	return nil
 }
 
@@ -149,6 +163,7 @@ func (s *ProfileService) UpdateProfile(p string) error {
 		if profileId, err = s.selectProfile("Select profile you want to update", 0); err != nil {
 			return err
 		}
+		fmt.Println()
 	} else {
 		if profileId, err = parseProfileIdFromArg(p, s); err != nil {
 			return err
@@ -159,11 +174,15 @@ func (s *ProfileService) UpdateProfile(p string) error {
 		return err
 	}
 
-	pterm.DefaultBasicText.Printf("Updating: %d %s\n", profile.Id, profile.Alias)
-	writer := pterm.DefaultInteractiveTextInput
+	pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.Bold)).Printf("Updating: %d %s\n", profile.Id, profile.Alias)
+	writer := pterm.DefaultInteractiveTextInput.WithTextStyle(pterm.NewStyle(pterm.FgDefault))
 
 	if profile.Encrypted {
-		oriEncKey, _ := pterm.DefaultInteractiveTextInput.WithTextStyle(pterm.NewStyle(pterm.FgDefault)).WithDefaultText("Encyption key").WithMask("*").Show()
+		input := writer.WithDefaultText("Decryption key")
+		if s.MaskInput {
+			input.Mask = "*"
+		}
+		oriEncKey, _ := input.Show()
 		hash := helpers.CreateHash(oriEncKey)
 		if profile.AuthType == database.AuthTypePassword {
 			if _, err = helpers.DecryptString(profile.Password, hash); err != nil {
@@ -176,6 +195,7 @@ func (s *ProfileService) UpdateProfile(p string) error {
 		}
 	}
 
+	fmt.Println()
 	user, err := parseAndVerifyInput(writer.WithDefaultText("User").WithDefaultValue(profile.User), func(t string) (string, error) {
 		if len(t) == 0 {
 			return t, fmt.Errorf("User cannot be empty.")
@@ -222,7 +242,7 @@ func (s *ProfileService) UpdateProfile(p string) error {
 
 	var auth string
 	if profile.AuthType == database.AuthTypePassword {
-		pterm.DefaultBasicText.Println("Press enter to keep the original password.")
+		pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.Bold)).Printf("%s\n", "Press enter to keep the original password.")
 		input := writer.WithDefaultText("Password")
 		if s.MaskInput {
 			input.Mask = "*"
@@ -233,8 +253,12 @@ func (s *ProfileService) UpdateProfile(p string) error {
 			updatedProfile.Password = profile.Password
 		} else {
 			if profile.Encrypted {
-				pterm.DefaultBasicText.Println("Press enter to keep the original encryption key.")
-				encKey, _ := writer.WithDefaultText("(New) Encyption key").WithMask("*").Show()
+				pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.Bold)).Printf("%s\n", "Press enter to keep the original encryption key.")
+				input := writer.WithDefaultText("(New) Encryption key")
+				if s.MaskInput {
+					input.Mask = "*"
+				}
+				encKey, _ := input.Show()
 				if len(encKey) == 0 {
 					encKey = oriEncKey
 				}
@@ -247,7 +271,7 @@ func (s *ProfileService) UpdateProfile(p string) error {
 			updatedEntries++
 		}
 	} else {
-		pterm.DefaultBasicText.Println("Press enter to keep the original keyfile.")
+		pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.Bold)).Printf("%s\n", "Press enter to keep the original keyfile.")
 		if auth, err = input_autocomplete.Read("Path to keyfile: "); err != nil {
 			return err
 		}
@@ -260,8 +284,12 @@ func (s *ProfileService) UpdateProfile(p string) error {
 				return err
 			}
 			if profile.Encrypted {
-				pterm.DefaultBasicText.Println("Press enter to keep the original encryption key.")
-				encKey, _ := writer.WithDefaultText("(New) Encyption key").WithMask("*").Show()
+				pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.Bold)).Printf("%s\n", "Press enter to keep the original encryption key.")
+				input := writer.WithDefaultText("(New) Encryption key")
+				if s.MaskInput {
+					input.Mask = "*"
+				}
+				encKey, _ := input.Show()
 				if len(encKey) == 0 {
 					encKey = oriEncKey
 				}
@@ -280,11 +308,13 @@ func (s *ProfileService) UpdateProfile(p string) error {
 	}
 
 	if updatedEntries == 0 {
+		fmt.Println()
 		pterm.Info.Println("Nothing was updated, exiting.")
 		return nil
 	}
 
 	if update, _ := pterm.DefaultInteractiveConfirm.WithDefaultText("\nDo you want to update the profile?").Show(); !update {
+		fmt.Println()
 		pterm.Info.Println("Profile update aborted, exiting.")
 		return nil
 	}
@@ -292,6 +322,7 @@ func (s *ProfileService) UpdateProfile(p string) error {
 	if err := s.DB.UpdateSSHProfileById(profile.Id, updatedProfile); err != nil {
 		return err
 	}
+	fmt.Println()
 	pterm.Info.Println("Successfully update profile")
 	return nil
 }
@@ -326,6 +357,7 @@ func (s *ProfileService) DeleteProfile(p string) error {
 	}
 
 	if d, _ := pterm.DefaultInteractiveConfirm.WithDefaultText("\nAre you sure?").Show(); !d {
+		fmt.Println()
 		pterm.Info.Println("Profile deletion aborted, exiting.")
 		return nil
 	}
@@ -336,6 +368,7 @@ func (s *ProfileService) DeleteProfile(p string) error {
 		}
 	}
 
+	fmt.Println()
 	pterm.Info.Printf("Successfully deleted %d profile(s).\n", len(profileIds))
 	return nil
 }
@@ -362,7 +395,7 @@ func (s *ProfileService) ExportProfile(p string) error {
 	if len(profiles) == 0 {
 		return fmt.Errorf("No profiles found for exporting.")
 	}
-	pterm.Println()
+	fmt.Println()
 	prettyPrintProfiles(profiles)
 
 	return nil
@@ -390,7 +423,12 @@ func (s *ProfileService) ConnectToSHHWithProfile(p string) error {
 	}
 
 	if profile.Encrypted {
-		encKey, _ := pterm.DefaultInteractiveTextInput.WithTextStyle(pterm.NewStyle(pterm.FgDefault)).WithDefaultText("Encyption key").WithMask("*").Show()
+		fmt.Println()
+		input := pterm.DefaultInteractiveTextInput.WithTextStyle(pterm.NewStyle(pterm.FgDefault)).WithDefaultText("Decryption Key")
+		if s.MaskInput {
+			input.Mask = "*"
+		}
+		encKey, _ := input.Show()
 		hash := helpers.CreateHash(encKey)
 		if profile.AuthType == database.AuthTypePassword {
 			if profile.Password, err = helpers.DecryptString(profile.Password, hash); err != nil {
