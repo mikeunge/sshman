@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	defaultConfigPath = "~/.config/sshman.json"
+	defaultConfigPath = "~/.config/sshman/sshman.json"
 )
 
 func main() {
@@ -22,8 +22,8 @@ func main() {
 	var app = cli.App{
 		Name:        "sshman",
 		Description: "SSH connection management tool.",
-		Version:     "1.1.2",
 		Author:      "@mikeunge",
+		Version:     "1.1.3",
 		Github:      "https://github.com/mikeunge/sshman",
 	}
 
@@ -36,7 +36,11 @@ func main() {
 	db := &database.DB{Path: cfg.DatabasePath}
 	err = db.Connect()
 	handleErrorAndCloseGracefully(err, 1, db)
-	profileService := profiles.ProfileService{DB: db, KeyPath: cfg.PrivateKeyPath}
+	profileService := profiles.ProfileService{
+		DB:        db,
+		KeyPath:   cfg.PrivateKeyPath,
+		MaskInput: cfg.MaskInput,
+	}
 
 	switch app.Args.SelectedCommand {
 	case cli.CommandList:
