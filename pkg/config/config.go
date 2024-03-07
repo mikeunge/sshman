@@ -47,6 +47,7 @@ func Parse(path string) (Config, error) {
 		return config, err
 	}
 
+	config.sanitizeConfigPaths()
 	if err := config.validatePaths(PathsToValidate, true); err != nil {
 		return config, err
 	}
