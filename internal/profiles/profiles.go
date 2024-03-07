@@ -77,9 +77,9 @@ func (s *ProfileService) NewProfile(encrypt bool) error {
 	if authType == database.AuthTypePassword {
 		input := writer.WithDefaultText("Password")
 		if s.MaskInput {
-			input.WithMask("*")
+			input.Mask = "*"
 		}
-		auth, err = parseAndVerifyInput(input.Show(), func(t string) (string, error) {
+		auth, err = parseAndVerifyInput(input, func(t string) (string, error) {
 			if len(t) == 0 {
 				return t, fmt.Errorf("Password cannot be empty.")
 			}
@@ -225,7 +225,7 @@ func (s *ProfileService) UpdateProfile(p string) error {
 		pterm.DefaultBasicText.Println("Press enter to keep the original password.")
 		input := writer.WithDefaultText("Password")
 		if s.MaskInput {
-			input.WithMask("*")
+			input.Mask = "*"
 		}
 
 		auth, _ = input.Show()
