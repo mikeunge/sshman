@@ -89,10 +89,14 @@ func prettyPrintProfiles(profiles []database.SSHProfile) {
 	var data [][]string
 	var dFormat = "02.01.2006"
 
-	data = append(data, []string{"Id", "Alias", "User", "Host/IP", "Authentication", "Created At"}) // define the table header
+	data = append(data, []string{"Id", "Alias", "User", "Host/IP", "Authentication", "Encrypted", "Created At"}) // define the table header
 	for _, profile := range profiles {
+		encrypted := "-"
 		authType := database.GetNameFromAuthType(profile.AuthType)
-		data = append(data, []string{fmt.Sprintf("%d", profile.Id), profile.Alias, profile.User, profile.Host, authType, profile.CTime.Format(dFormat)})
+		if profile.Encrypted {
+			encrypted = "+"
+		}
+		data = append(data, []string{fmt.Sprintf("%d", profile.Id), profile.Alias, profile.User, profile.Host, authType, encrypted, profile.CTime.Format(dFormat)})
 	}
 	pterm.DefaultTable.
 		WithHasHeader().

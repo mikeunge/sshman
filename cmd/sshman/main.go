@@ -60,7 +60,11 @@ func main() {
 		handleErrorAndCloseGracefully(err, 1, db)
 		break
 	case cli.CommandNew:
-		err := profileService.NewProfile()
+		enc := false
+		if app.Args.AdditionalArgument == "encrypt" {
+			enc = true
+		}
+		err := profileService.NewProfile(enc)
 		handleErrorAndCloseGracefully(err, 1, db)
 		break
 	case cli.CommandUpdate:
