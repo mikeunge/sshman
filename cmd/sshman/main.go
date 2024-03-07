@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	defaultConfigPath = "~/.config/sshman.json"
+	defaultConfigPath = "~/.config/sshman/sshman.json"
 )
 
 func main() {
@@ -23,7 +23,7 @@ func main() {
 		Name:        "sshman",
 		Description: "SSH connection management tool.",
 		Author:      "@mikeunge",
-		Version:     "1.1.2",
+		Version:     "1.1.3",
 		Github:      "https://github.com/mikeunge/sshman",
 	}
 
