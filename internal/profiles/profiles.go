@@ -3,10 +3,8 @@ package profiles
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -502,14 +500,9 @@ func (s *ProfileService) connectToSSH(profile *database.SSHProfile) error {
 	server := ssh.SSHServer{User: profile.User, Host: profile.Host, SecureConnection: false}
 
 	if profile.AuthType == database.AuthTypePrivateKey {
-		tmpPath := filepath.Join(s.KeyPath, fmt.Sprintf("%d.pem", rand.Int()))
-		if err := ssh.CreatePrivateKey(tmpPath, profile.PrivateKey); err != nil {
+		if err := server.ConnectSSHServerWithPrivateKey(profile.PrivateKey); err != nil {
 			return err
 		}
-		if err := server.ConnectSSHServerWithPrivateKey(tmpPath); err != nil {
-			return err
-		}
-		defer helpers.RemovePath(tmpPath)
 	} else {
 		if err := server.ConnectSSHServerWithPassword(profile.Password); err != nil {
 			return err

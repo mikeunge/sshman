@@ -4,6 +4,7 @@ import (
 	"github.com/mikeunge/sshman/pkg/helpers"
 
 	"github.com/melbahja/goph"
+	cryptSSH "golang.org/x/crypto/ssh"
 )
 
 type SSHServer struct {
@@ -31,31 +32,32 @@ func (s SSHServer) generateSSHClient(auth goph.Auth) (*goph.Client, error) {
 
 // ConnectSSHServerWithPrivateKey()
 //
-// @Param privateKeyFilePath Path to the SSH RSA private key
-// @Param password           (optional) Password for authentication
-// @Param config             SSH server configuration
+// @param privateKeyFilePath Path to the SSH RSA private key
+// @param config             SSH server configuration
 //
-// @Return error
-func (s *SSHServer) ConnectSSHServerWithPrivateKey(privateKeyFilePath string) error {
-	auth, err := goph.Key(privateKeyFilePath, "")
+// @return error
+func (s *SSHServer) ConnectSSHServerWithPrivateKey(privateKey []byte) error {
+	signer, err := cryptSSH.ParsePrivateKey(privateKey)
 	if err != nil {
 		return err
 	}
 
+	auth := goph.Auth{cryptSSH.PublicKeys(signer)}
 	client, err := s.generateSSHClient(auth)
 	if err != nil {
 		return err
 	}
+
 	s.Client = client
 	return nil
 }
 
 // ConnectSSHServerWithPassword()
 //
-// @Param password  Password for authentication
-// @Param config    SSH server configuration
+// @param password  Password for authentication
+// @param config    SSH server configuration
 //
-// @Return error
+// @return error
 func (s *SSHServer) ConnectSSHServerWithPassword(password string) error {
 	auth := goph.Password(password)
 	client, err := s.generateSSHClient(auth)
@@ -68,10 +70,10 @@ func (s *SSHServer) ConnectSSHServerWithPassword(password string) error {
 
 // CreatePrivateKey()
 //
-// @Param path  Path for the private key
-// @Param data  Binary data of the private key
+// @param path  Path for the private key
+// @param data  Binary data of the private key
 //
-// @Return error
+// @return error
 func CreatePrivateKey(path string, data []byte) error {
 	if err := helpers.CreatePathIfNotExist(path); err != nil {
 		return err
