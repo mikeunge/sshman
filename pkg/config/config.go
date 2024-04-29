@@ -10,24 +10,21 @@ import (
 )
 
 const (
-	defaultDatabasePath   = "~/.local/share/sshman/sshman.db"
-	defaultLoggingPath    = "~/.local/share/sshman/sshman.log"
-	defaultPrivateKeyPath = "~/.local/share/sshman/keys/"
-	defaultMaskInput      = true
+	defaultDatabasePath = "~/.local/share/sshman/sshman.db"
+	defaultLoggingPath  = "~/.local/share/sshman/sshman.log"
+	defaultMaskInput    = true
 )
 
 type Config struct {
-	DatabasePath   string `json:"databasepath"`
-	LoggingPath    string `json:"logpath"`
-	PrivateKeyPath string `json:"privateKeyPath"`
-	MaskInput      bool   `json:"maskInput"`
+	DatabasePath string `json:"databasepath"`
+	LoggingPath  string `json:"logpath"`
+	MaskInput    bool   `json:"maskInput"`
 }
 
 // Paths to validate
 var PathsToValidate = []string{
 	"DatabasePath",
 	"LoggingPath",
-	"PrivateKeyPath",
 }
 
 func Parse(path string) (Config, error) {
@@ -90,10 +87,9 @@ func (c *Config) validatePaths(objectNames []string, createIfNotExist bool) erro
 
 func defaultConfig() Config {
 	config := Config{
-		DatabasePath:   defaultDatabasePath,
-		LoggingPath:    defaultLoggingPath,
-		PrivateKeyPath: defaultPrivateKeyPath,
-		MaskInput:      defaultMaskInput,
+		DatabasePath: defaultDatabasePath,
+		LoggingPath:  defaultLoggingPath,
+		MaskInput:    defaultMaskInput,
 	}
 	config.sanitizeConfigPaths()
 	config.validatePaths(PathsToValidate, true)
@@ -103,5 +99,4 @@ func defaultConfig() Config {
 func (c *Config) sanitizeConfigPaths() {
 	c.DatabasePath = helpers.SanitizePath(c.DatabasePath)
 	c.LoggingPath = helpers.SanitizePath(c.LoggingPath)
-	c.PrivateKeyPath = helpers.SanitizePath(c.PrivateKeyPath)
 }

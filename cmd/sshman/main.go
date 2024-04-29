@@ -23,7 +23,7 @@ func main() {
 		Name:        "sshman",
 		Description: "SSH connection management tool.",
 		Author:      "@mikeunge",
-		Version:     "1.1.3",
+		Version:     "1.1.4",
 		Github:      "https://github.com/mikeunge/sshman",
 	}
 
@@ -38,7 +38,6 @@ func main() {
 	handleErrorAndCloseGracefully(err, 1, db)
 	profileService := profiles.ProfileService{
 		DB:        db,
-		KeyPath:   cfg.PrivateKeyPath,
 		MaskInput: cfg.MaskInput,
 	}
 
