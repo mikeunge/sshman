@@ -38,7 +38,6 @@ func main() {
 	handleErrorAndCloseGracefully(err, 1, db)
 	profileService := profiles.ProfileService{
 		DB:        db,
-		KeyPath:   cfg.PrivateKeyPath,
 		MaskInput: cfg.MaskInput,
 	}
 
