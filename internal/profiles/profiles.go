@@ -2,12 +2,14 @@ package profiles
 
 import (
 	"context"
+	"encoding/csv"
 	"fmt"
 	"os"
 	"os/signal"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/mikeunge/sshman/internal/database"
 	"github.com/mikeunge/sshman/pkg/helpers"
@@ -21,6 +23,7 @@ type ProfileService struct {
 	DB        *database.DB
 	KeyPath   string
 	MaskInput bool
+	// TODO: @mikeunge - implement retry policy for decryption
 }
 
 func (s *ProfileService) NewProfile(encrypt bool) error {
@@ -174,23 +177,8 @@ func (s *ProfileService) UpdateProfile(p string) error {
 
 	pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.Bold)).Printf("Updating: %d %s\n", profile.Id, profile.Alias)
 	writer := pterm.DefaultInteractiveTextInput.WithTextStyle(pterm.NewStyle(pterm.FgDefault))
-
-	if profile.Encrypted {
-		input := writer.WithDefaultText("Decryption key")
-		if s.MaskInput {
-			input.Mask = "*"
-		}
-		oriEncKey, _ := input.Show()
-		hash := helpers.CreateHash(oriEncKey)
-		if profile.AuthType == database.AuthTypePassword {
-			if _, err = helpers.DecryptString(profile.Password, hash); err != nil {
-				return err
-			}
-		} else {
-			if _, err = helpers.DecryptString(string(profile.PrivateKey), hash); err != nil {
-				return err
-			}
-		}
+	if err = decryptProfile(&profile, s.MaskInput); err != nil {
+		return err
 	}
 
 	fmt.Println()
@@ -393,9 +381,49 @@ func (s *ProfileService) ExportProfile(p string) error {
 	if len(profiles) == 0 {
 		return fmt.Errorf("No profiles found for exporting.")
 	}
-	fmt.Println()
-	prettyPrintProfiles(profiles)
+	if err = decryptProfiles(profiles, s.MaskInput); err != nil {
+		return fmt.Errorf("Encountered encryption error, %+v", err)
+	}
 
+	csv := func(path string, header []string, profiles []database.SSHProfile) error {
+		var data [][]string
+		var dFormat = "02.01.2006"
+
+		data = append(data, header) // define the table header
+		for _, profile := range profiles {
+			var auth string
+			authType := database.GetNameFromAuthType(profile.AuthType)
+			if profile.AuthType == database.AuthTypePassword {
+				auth = profile.Password
+			} else {
+				auth = string(profile.PrivateKey[:])
+			}
+
+			encrypted := "-"
+			if profile.Encrypted {
+				encrypted = "+"
+			}
+			data = append(data, []string{fmt.Sprintf("%d", profile.Id), profile.Alias, profile.User, profile.Host, authType, auth, encrypted, profile.CTime.Format(dFormat)})
+		}
+
+		file, err := os.Create(path)
+		defer file.Close()
+		if err != nil {
+			return err
+		}
+		w := csv.NewWriter(file)
+		w.WriteAll(data)
+		w.Flush()
+
+		return nil
+	}
+
+	header := []string{"Id", "Alias", "User", "Host/IP", "Auth Type", "Authentication", "Encrypted", "Created At"}
+	path := fmt.Sprintf("%d.csv", time.Now().Unix())
+	if err = csv(path, header, profiles); err != nil {
+		return fmt.Errorf("Could not export to csv, %s", err.Error())
+	}
+	pterm.Success.Printf("Export created: %s\n", path)
 	return nil
 }
 
@@ -419,26 +447,8 @@ func (s *ProfileService) ConnectToSHHWithProfile(p string) error {
 	if profile, err = s.DB.GetSSHProfileById(profileId); err != nil {
 		return err
 	}
-
-	if profile.Encrypted {
-		fmt.Println()
-		input := pterm.DefaultInteractiveTextInput.WithTextStyle(pterm.NewStyle(pterm.FgDefault)).WithDefaultText("Decryption Key")
-		if s.MaskInput {
-			input.Mask = "*"
-		}
-		encKey, _ := input.Show()
-		hash := helpers.CreateHash(encKey)
-		if profile.AuthType == database.AuthTypePassword {
-			if profile.Password, err = helpers.DecryptString(profile.Password, hash); err != nil {
-				return err
-			}
-		} else {
-			if decryptedPrivateKey, err := helpers.DecryptString(string(profile.PrivateKey), hash); err != nil {
-				return err
-			} else {
-				profile.PrivateKey = []byte(decryptedPrivateKey)
-			}
-		}
+	if err = decryptProfile(&profile, s.MaskInput); err != nil {
+		return err
 	}
 
 	if err = s.connectToSSH(&profile); err != nil {
@@ -497,6 +507,7 @@ func parseProfileIdFromArg(p string, s *ProfileService) (int64, error) {
 }
 
 func (s *ProfileService) connectToSSH(profile *database.SSHProfile) error {
+	sessionStart := time.Now()
 	server := ssh.SSHServer{User: profile.User, Host: profile.Host, SecureConnection: false}
 
 	if profile.AuthType == database.AuthTypePrivateKey {
@@ -526,5 +537,6 @@ func (s *ProfileService) connectToSSH(profile *database.SSHProfile) error {
 	case <-ctx.Done():
 	}
 
+	pterm.Info.Printf("Session closed. ( %s )\n", time.Since(sessionStart))
 	return nil
 }
