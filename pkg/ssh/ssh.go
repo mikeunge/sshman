@@ -1,8 +1,6 @@
 package ssh
 
 import (
-	"github.com/mikeunge/sshman/pkg/helpers"
-
 	"github.com/melbahja/goph"
 	cryptSSH "golang.org/x/crypto/ssh"
 )
@@ -65,21 +63,5 @@ func (s *SSHServer) ConnectSSHServerWithPassword(password string) error {
 		return err
 	}
 	s.Client = client
-	return nil
-}
-
-// CreatePrivateKey()
-//
-// @param path  Path for the private key
-// @param data  Binary data of the private key
-//
-// @return error
-func CreatePrivateKey(path string, data []byte) error {
-	if err := helpers.CreatePathIfNotExist(path); err != nil {
-		return err
-	}
-	if err := helpers.WriteToFile(path, string(data), 0600); err != nil {
-		return err
-	}
 	return nil
 }
