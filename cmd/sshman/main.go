@@ -23,7 +23,7 @@ func main() {
 		Name:        "sshman",
 		Description: "SSH connection management tool.",
 		Author:      "@mikeunge",
-		Version:     "1.2.0",
+		Version:     "1.2.1",
 		Github:      "https://github.com/mikeunge/sshman",
 	}
 
@@ -37,8 +37,9 @@ func main() {
 	err = db.Connect()
 	handleErrorAndCloseGracefully(err, 1, db)
 	profileService := profiles.ProfileService{
-		DB:        db,
-		MaskInput: cfg.MaskInput,
+		DB:                db,
+		MaskInput:         cfg.MaskInput,
+		DecryptionRetries: cfg.DecryptionRetries,
 	}
 
 	switch app.Args.SelectedCommand {

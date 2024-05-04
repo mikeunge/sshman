@@ -9,36 +9,51 @@ import (
 	"github.com/pterm/pterm"
 )
 
-func decryptProfiles(profiles []database.SSHProfile, maskInput bool) error {
+func decryptProfiles(profiles []database.SSHProfile, maskInput bool, maxTries int) error {
 	for _, profile := range profiles {
-		if err := decryptProfile(&profile, maskInput); err != nil {
+		if err := decryptProfile(&profile, maskInput, maxTries); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func decryptProfile(profile *database.SSHProfile, maskInput bool) error {
+func decryptProfile(profile *database.SSHProfile, maskInput bool, maxTries int) error {
 	var err error
+
+	fmt.Print(maxTries)
+	currentTry := 0
 	if profile.Encrypted {
-		input := pterm.
-			DefaultInteractiveTextInput.
-			WithTextStyle(pterm.NewStyle(pterm.FgDefault)).
-			WithDefaultText(fmt.Sprintf("\nDecryption Key (%s)", profile.Alias))
-		if maskInput {
-			input.Mask = "*"
-		}
-		encKey, _ := input.Show()
-		hash := helpers.CreateHash(encKey)
-		if profile.AuthType == database.AuthTypePassword {
-			if profile.Password, err = helpers.DecryptString(profile.Password, hash); err != nil {
-				return err
+		for currentTry < maxTries {
+			currentTry++
+			input := pterm.
+				DefaultInteractiveTextInput.
+				WithTextStyle(pterm.NewStyle(pterm.FgDefault)).
+				WithDefaultText(fmt.Sprintf("\nDecryption Key (%s)", profile.Alias))
+			if maskInput {
+				input.Mask = "*"
 			}
-		} else {
-			if decryptedPrivateKey, err := helpers.DecryptString(string(profile.PrivateKey), hash); err != nil {
-				return err
+			encKey, _ := input.Show()
+			hash := helpers.CreateHash(encKey)
+			if profile.AuthType == database.AuthTypePassword {
+				if profile.Password, err = helpers.DecryptString(profile.Password, hash); err != nil {
+					if currentTry < maxTries {
+						pterm.Warning.Println("Wrong password, please try again...")
+					} else {
+						return err
+					}
+				}
 			} else {
-				profile.PrivateKey = []byte(decryptedPrivateKey)
+				if decryptedPrivateKey, err := helpers.DecryptString(string(profile.PrivateKey), hash); err != nil {
+					if currentTry < maxTries {
+						currentTry++
+						pterm.Warning.Println("Wrong password, please try again...")
+					} else {
+						return err
+					}
+				} else {
+					profile.PrivateKey = []byte(decryptedPrivateKey)
+				}
 			}
 		}
 	}

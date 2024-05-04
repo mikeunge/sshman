@@ -20,10 +20,10 @@ import (
 )
 
 type ProfileService struct {
-	DB        *database.DB
-	KeyPath   string
-	MaskInput bool
-	// TODO: @mikeunge - implement retry policy for decryption
+	DB                *database.DB
+	KeyPath           string
+	MaskInput         bool
+	DecryptionRetries int
 }
 
 func (s *ProfileService) NewProfile(encrypt bool) error {
@@ -177,8 +177,8 @@ func (s *ProfileService) UpdateProfile(p string) error {
 
 	pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.Bold)).Printf("Updating: %d %s\n", profile.Id, profile.Alias)
 	writer := pterm.DefaultInteractiveTextInput.WithTextStyle(pterm.NewStyle(pterm.FgDefault))
-	if err = decryptProfile(&profile, s.MaskInput); err != nil {
-		return err
+	if err = decryptProfile(&profile, s.MaskInput, s.DecryptionRetries); err != nil {
+		return fmt.Errorf("Encountered decryption error, %+v", err)
 	}
 
 	fmt.Println()
@@ -381,8 +381,8 @@ func (s *ProfileService) ExportProfile(p string) error {
 	if len(profiles) == 0 {
 		return fmt.Errorf("No profiles found for exporting.")
 	}
-	if err = decryptProfiles(profiles, s.MaskInput); err != nil {
-		return fmt.Errorf("Encountered encryption error, %+v", err)
+	if err = decryptProfiles(profiles, s.MaskInput, s.DecryptionRetries); err != nil {
+		return fmt.Errorf("Encountered decryption error, %+v", err)
 	}
 
 	csv := func(path string, header []string, profiles []database.SSHProfile) error {
@@ -447,8 +447,8 @@ func (s *ProfileService) ConnectToSHHWithProfile(p string) error {
 	if profile, err = s.DB.GetSSHProfileById(profileId); err != nil {
 		return err
 	}
-	if err = decryptProfile(&profile, s.MaskInput); err != nil {
-		return err
+	if err = decryptProfile(&profile, s.MaskInput, s.DecryptionRetries); err != nil {
+		return fmt.Errorf("Encountered decryption error, %+v", err)
 	}
 
 	if err = s.connectToSSH(&profile); err != nil {

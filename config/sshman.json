@@ -1,5 +1,6 @@
 {
   "databasepath": "~/.local/share/sshman/sshman.db",
   "logpath": "~/.local/share/sshman/sshman.log",
-  "maskInput": true
+  "maskInput": true,
+  "decryptionRetries": 1
 }

@@ -10,15 +10,17 @@ import (
 )
 
 const (
-	defaultDatabasePath = "~/.local/share/sshman/sshman.db"
-	defaultLoggingPath  = "~/.local/share/sshman/sshman.log"
-	defaultMaskInput    = true
+	defaultDatabasePath      = "~/.local/share/sshman/sshman.db"
+	defaultLoggingPath       = "~/.local/share/sshman/sshman.log"
+	defaultMaskInput         = true
+	defaultDecryptionRetries = 1
 )
 
 type Config struct {
-	DatabasePath string `json:"databasepath"`
-	LoggingPath  string `json:"logpath"`
-	MaskInput    bool   `json:"maskInput"`
+	DatabasePath      string `json:"databasepath"`
+	LoggingPath       string `json:"logpath"`
+	MaskInput         bool   `json:"maskInput"`
+	DecryptionRetries int    `json:"decryptionRetries"`
 }
 
 // Paths to validate
@@ -87,9 +89,10 @@ func (c *Config) validatePaths(objectNames []string, createIfNotExist bool) erro
 
 func defaultConfig() Config {
 	config := Config{
-		DatabasePath: defaultDatabasePath,
-		LoggingPath:  defaultLoggingPath,
-		MaskInput:    defaultMaskInput,
+		DatabasePath:      defaultDatabasePath,
+		LoggingPath:       defaultLoggingPath,
+		MaskInput:         defaultMaskInput,
+		DecryptionRetries: defaultDecryptionRetries,
 	}
 	config.sanitizeConfigPaths()
 	config.validatePaths(PathsToValidate, true)
