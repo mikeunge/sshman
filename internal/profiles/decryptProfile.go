@@ -10,8 +10,8 @@ import (
 )
 
 func decryptProfiles(profiles []database.SSHProfile, maskInput bool, maxTries int) error {
-	for _, profile := range profiles {
-		if err := decryptProfile(&profile, maskInput, maxTries); err != nil {
+	for i := 0; i < len(profiles); i++ {
+		if err := decryptProfile(&profiles[i], maskInput, maxTries); err != nil {
 			return err
 		}
 	}
@@ -21,7 +21,6 @@ func decryptProfiles(profiles []database.SSHProfile, maskInput bool, maxTries in
 func decryptProfile(profile *database.SSHProfile, maskInput bool, maxTries int) error {
 	var err error
 
-	fmt.Print(maxTries)
 	currentTry := 0
 	if profile.Encrypted {
 		for currentTry < maxTries {
