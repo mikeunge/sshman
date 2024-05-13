@@ -526,7 +526,7 @@ func (s *ProfileService) connectToSSH(profile *database.SSHProfile) error {
 
 	go func() {
 		if err := server.SpawnShell(ctx); err != nil {
-			pterm.Error.Printf(err.Error())
+			pterm.Error.Printf("%s\n", err.Error())
 		}
 		cancel()
 	}()
