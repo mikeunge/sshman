@@ -537,12 +537,8 @@ func (s *ProfileService) connectToSSH(profile *database.SSHProfile) error {
 	case <-ctx.Done():
 	}
 
-	duration := time.Since(sessionStart)
-	durationDisplay := fmt.Sprintf("%.0fm%.0fs", duration.Minutes(), duration.Seconds())
-	if duration.Hours() >= 1.0 {
-		durationDisplay = fmt.Sprintf("%.0fh%.0fm%.0fs", duration.Hours(), duration.Minutes(), duration.Seconds())
-	}
-
-	pterm.Info.Printf("Session closed. ( %s )\n", durationDisplay)
+	duration := time.Now().Sub(sessionStart)
+	durationArr := strings.Split(time.Time{}.Add(duration).Format("15:04:05"), ":")
+	pterm.Info.Printf("Session closed. (total: %sh %sm %ss)\n", durationArr[0], durationArr[1], durationArr[2])
 	return nil
 }
