@@ -4,27 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/akamensky/argparse"
+	"github.com/mikeunge/argparser"
 	"github.com/pterm/pterm"
 	"github.com/pterm/pterm/putils"
 )
-
-type Command int
-
-const (
-	CommandList    Command = 0
-	CommandConnect Command = 1
-	CommandNew     Command = 2
-	CommandUpdate  Command = 3
-	CommandDelete  Command = 4
-	CommandExport  Command = 5
-)
-
-// TODO: change the additional arguments - maybe parse like key value pairs
-type Arguments struct {
-	SelectedCommand    Command
-	AdditionalArgument string
-}
 
 type App struct {
 	Name        string
@@ -32,36 +15,39 @@ type App struct {
 	Version     string
 	Author      string
 	Github      string
-	Args        Arguments
 }
 
-func (app *App) New() error {
-	parser := argparse.NewParser(app.Name, app.Description)
-	argVersion := parser.Flag("", "version", &argparse.Options{Required: false, Help: "Prints the version."})
-	argAbout := parser.Flag("", "about", &argparse.Options{Required: false, Help: "Print information about the app."})
-	argList := parser.Flag("l", "list", &argparse.Options{Required: false, Help: "Connect to a server with profile."})
+func (app *App) New() (map[string]interface{}, map[string]*bool, error) {
+	args := make(map[string]interface{}, 0)
+	argsFound := make(map[string]*bool, 0)
 
-	argConnect := parser.Flag("c", "connect", &argparse.Options{Required: false, Help: "Connect to a server with profile."})
-	argNew := parser.Flag("n", "new", &argparse.Options{Required: false, Help: "Create a new SSH profile."})
-	argEncrypt := parser.Flag("", "encrypt", &argparse.Options{Required: false, Help: "Encrypt the password/private key."})
-	argUpdate := parser.Flag("u", "update", &argparse.Options{Required: false, Help: "Update an SSH profile."})
-	argDelete := parser.Flag("d", "delete", &argparse.Options{Required: false, Help: "Delete SSH profiles."})
-	argExport := parser.Flag("e", "export", &argparse.Options{Required: false, Help: "Export profiles (for eg. sharing)."})
+	parser := argparser.NewParser(app.Name, app.Description)
+	args["version"], argsFound["version"] = parser.Flag("", "--version", &argparser.Options{Required: false, Help: "Prints the version."})
+	args["about"], argsFound["about"] = parser.Flag("", "--about", &argparser.Options{Required: false, Help: "Print information about the app."})
+	args["list"], argsFound["list"] = parser.Flag("-l", "--list", &argparser.Options{Required: false, Help: "Connect to a server with profile."})
 
-	argAlias := parser.String("a", "alias", &argparse.Options{Required: false, Help: "Provide an alias to directly access."})
-	argId := parser.Int("i", "id", &argparse.Options{Required: false, Help: "Provide an id for directly accessing."})
+	args["conn"], argsFound["conn"] = parser.Flag("-c", "--connect", &argparser.Options{Required: false, Help: "Connect to a server with profile."})
+	args["new"], argsFound["new"] = parser.Flag("-n", "--new", &argparser.Options{Required: false, Help: "Create a new SSH profile."})
+	args["encrypt"], argsFound["encrypt"] = parser.Flag("", "--encrypt", &argparser.Options{Required: false, Help: "Encrypt the password/private key."})
+	args["update"], argsFound["update"] = parser.Flag("-u", "--update", &argparser.Options{Required: false, Help: "Update an SSH profile."})
+	args["delete"], argsFound["delete"] = parser.Flag("-d", "--delete", &argparser.Options{Required: false, Help: "Delete SSH profiles."})
+	args["export"], argsFound["export"] = parser.Flag("-e", "--export", &argparser.Options{Required: false, Help: "Export profiles (for eg. sharing)."})
 
-	err := parser.Parse(os.Args)
+	args["alias"], argsFound["alias"] = parser.String("-a", "--alias", &argparser.Options{Required: false, Help: "Provide an alias to directly access."})
+	args["id"], argsFound["id"] = parser.Number("-i", "--id", &argparser.Options{Required: false, Help: "Provide an id for directly accessing."})
+
+	err := parser.Parse()
 	if err != nil {
-		return fmt.Errorf("Parsing error\n%+v", parser.Usage(err))
+		parser.PrintHelp()
+		return args, argsFound, fmt.Errorf("Parsing error\n%s", err.Error())
 	}
 
-	if *argVersion {
+	if *argsFound["version"] {
 		pterm.DefaultBasicText.Printf("v%s\n", app.Version)
 		os.Exit(0)
 	}
 
-	if *argAbout {
+	if *argsFound["about"] {
 		s, _ := pterm.DefaultBigText.WithLetters(
 			putils.LettersFromStringWithStyle("SSH", pterm.FgRed.ToStyle()),
 			putils.LettersFromStringWithStyle("MAN", pterm.FgWhite.ToStyle())).
@@ -72,51 +58,5 @@ func (app *App) New() error {
 			Printf("%s - v%s\n%s\n\n"+pterm.Red("Author:")+" %s\n"+pterm.Red("Repository:")+" %s\n", app.Name, app.Version, app.Description, app.Author, app.Github)
 		os.Exit(0)
 	}
-
-	if *argList {
-		app.Args.SelectedCommand = CommandList
-		return nil
-	}
-
-	app.Args.AdditionalArgument = parseExtraArguments(*argAlias, *argId)
-
-	if *argConnect {
-		app.Args.SelectedCommand = CommandConnect
-		return nil
-	}
-
-	if *argDelete {
-		app.Args.SelectedCommand = CommandDelete
-		return nil
-	}
-
-	if *argUpdate {
-		app.Args.SelectedCommand = CommandUpdate
-		return nil
-	}
-
-	if *argExport {
-		app.Args.SelectedCommand = CommandExport
-		return nil
-	}
-
-	if *argNew {
-		// Encryption can only be set when creating a new key
-		if *argEncrypt {
-			app.Args.AdditionalArgument = "encrypt"
-		}
-		app.Args.SelectedCommand = CommandNew
-		return nil
-	}
-
-	return fmt.Errorf("Parsing error\n%+v", parser.Usage(err))
-}
-
-func parseExtraArguments(alias string, id int) string {
-	if len(alias) > 0 {
-		return alias
-	} else if id > 0 {
-		return fmt.Sprint(id)
-	}
-	return ""
+	return args, argsFound, nil
 }

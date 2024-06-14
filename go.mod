@@ -1,13 +1,13 @@
 module github.com/mikeunge/sshman
 
-go 1.21.6
+go 1.22.0
 
 require (
 	atomicgo.dev/keyboard v0.2.9
 	github.com/JoaoDanielRufino/go-input-autocomplete v1.0.4
-	github.com/akamensky/argparse v1.4.0
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/melbahja/goph v1.4.0
+	github.com/mikeunge/argparser v0.1.0-alpha
 	github.com/pterm/pterm v0.12.78
 	golang.org/x/crypto v0.20.0
 	golang.org/x/term v0.17.0
