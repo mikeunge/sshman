@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/mikeunge/sshman/internal/cli"
 	"github.com/mikeunge/sshman/internal/database"
@@ -19,82 +18,96 @@ const (
 
 func main() {
 	var err error
+	var cfg config.Config
 	var app = cli.App{
 		Name:        "sshman",
 		Description: "SSH connection management tool.",
 		Author:      "@mikeunge",
-		Version:     "1.2.2",
+		Version:     "1.3.0",
 		Github:      "https://github.com/mikeunge/sshman",
 	}
 
-	err = app.New()
-	handleErrorAndCloseGracefully(err, 1, nil)
+	args, argsFound, err := app.New()
+	if err != nil {
+		pterm.Error.Printf("%s\n", err.Error())
+		os.Exit(1)
+	}
 
-	cfg, err := config.Parse(defaultConfigPath)
-	handleErrorAndCloseGracefully(err, 1, nil)
+	if cfg, err = config.Parse(defaultConfigPath); err != nil {
+		pterm.Error.Printf("%s\n", err.Error())
+		os.Exit(1)
+	}
 
 	db := &database.DB{Path: cfg.DatabasePath}
-	err = db.Connect()
-	handleErrorAndCloseGracefully(err, 1, db)
+	if err = db.Connect(); err != nil {
+		pterm.Error.Printf("%s\n", err.Error())
+		os.Exit(1)
+	}
+	defer db.Disconnect()
+
 	profileService := profiles.ProfileService{
 		DB:                db,
 		MaskInput:         cfg.MaskInput,
 		DecryptionRetries: cfg.DecryptionRetries,
 	}
 
-	switch app.Args.SelectedCommand {
-	case cli.CommandList:
-		err := profileService.ProfilesList()
-		handleErrorAndCloseGracefully(err, 1, db)
+	nonValidCommands := []string{"encrypt", "id", "alias"}
+	command, err := determineNextStep(args, argsFound, nonValidCommands)
+	switch command {
+	case "list":
+		err = profileService.ProfilesList()
 		break
-	case cli.CommandConnect:
-		err := profileService.ConnectToSHHWithProfile(app.Args.AdditionalArgument)
-		handleErrorAndCloseGracefully(err, 1, db)
+	case "connect":
+		additionalArg := getAdditionalArg(args, argsFound)
+		err = profileService.ConnectToSHHWithProfile(additionalArg)
 		break
-	case cli.CommandDelete:
-		err := profileService.DeleteProfile(app.Args.AdditionalArgument)
-		handleErrorAndCloseGracefully(err, 1, db)
+	case "delete":
+		additionalArg := getAdditionalArg(args, argsFound)
+		err = profileService.DeleteProfile(additionalArg)
 		break
-	case cli.CommandExport:
-		err := profileService.ExportProfile(app.Args.AdditionalArgument)
-		handleErrorAndCloseGracefully(err, 1, db)
+	case "export":
+		additionalArg := getAdditionalArg(args, argsFound)
+		err = profileService.ExportProfile(additionalArg)
 		break
-	case cli.CommandNew:
-		enc := false
-		if app.Args.AdditionalArgument == "encrypt" {
-			enc = true
-		}
-		err := profileService.NewProfile(enc)
-		handleErrorAndCloseGracefully(err, 1, db)
+	case "new":
+		err = profileService.NewProfile(*argsFound["encrypt"])
 		break
-	case cli.CommandUpdate:
-		err := profileService.UpdateProfile(app.Args.AdditionalArgument)
-		handleErrorAndCloseGracefully(err, 1, db)
+	case "update":
+		additionalArg := getAdditionalArg(args, argsFound)
+		err = profileService.UpdateProfile(additionalArg)
 		break
 	default:
-		handleErrorAndCloseGracefully(fmt.Errorf("Selected command is not valid, exiting."), 10, db)
+		err = fmt.Errorf("Selected command is not valid, exiting.")
 		break
 	}
 
+	if err != nil {
+		pterm.Error.Printf("%s\n", err.Error())
+		os.Exit(1)
+	}
 	os.Exit(0)
 }
 
-// Handle errors & gracefully disconnect from database
-func handleErrorAndCloseGracefully(err error, exitCode int, db *database.DB) {
-	if err != nil {
-		if db != nil {
-			if e := db.Disconnect(); e != nil {
-				pterm.Error.Printf("%v\n", e)
+func getAdditionalArg(args map[string]interface{}, found map[string]*bool) string {
+	if *found["id"] {
+		return fmt.Sprintf("%d", *args["id"].(*int))
+	} else if *found["alias"] {
+		return *args["alias"].(*string)
+	}
+	return ""
+}
+
+func determineNextStep(args map[string]interface{}, found map[string]*bool, filter []string) (string, error) {
+	for key := range args {
+		valid := true
+		for _, f := range filter {
+			if f == key {
+				valid = false
 			}
 		}
-
-		textArr := strings.Split(err.Error(), "\n")
-		if len(textArr) > 1 {
-			pterm.Error.Printf("%s\n", textArr[0])
-			pterm.DefaultBasicText.Print(strings.Join(textArr[1:], "\n"))
-		} else {
-			pterm.Error.Printf("%s\n", err.Error())
+		if *found[key] && valid {
+			return key, nil
 		}
-		os.Exit(exitCode)
 	}
+	return "", fmt.Errorf("No parameters to parse.")
 }
