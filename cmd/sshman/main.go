@@ -50,8 +50,9 @@ func main() {
 		MaskInput:         cfg.MaskInput,
 		DecryptionRetries: cfg.DecryptionRetries,
 	}
-	command, err := determineNextStep(args, argsFound)
 
+	nonValidCommands := []string{"encrypt", "id", "alias"}
+	command, err := determineNextStep(args, argsFound, nonValidCommands)
 	switch command {
 	case "list":
 		err = profileService.ProfilesList()
@@ -89,16 +90,22 @@ func main() {
 
 func getAdditionalArg(args map[string]interface{}, found map[string]*bool) string {
 	if *found["id"] {
-		return *args["id"].(*string)
+		return fmt.Sprintf("%d", *args["id"].(*int))
 	} else if *found["alias"] {
 		return *args["alias"].(*string)
 	}
 	return ""
 }
 
-func determineNextStep(args map[string]interface{}, found map[string]*bool) (string, error) {
+func determineNextStep(args map[string]interface{}, found map[string]*bool, filter []string) (string, error) {
 	for key := range args {
-		if *found[key] {
+		valid := true
+		for _, f := range filter {
+			if f == key {
+				valid = false
+			}
+		}
+		if *found[key] && valid {
 			return key, nil
 		}
 	}
