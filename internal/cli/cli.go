@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/mikeunge/argparser"
@@ -38,8 +37,8 @@ func (app *App) New() (map[string]interface{}, map[string]*bool, error) {
 
 	err := parser.Parse()
 	if err != nil {
-		parser.PrintHelp()
-		return args, argsFound, fmt.Errorf("Parsing error\n%s", err.Error())
+		parser.Usage(err.Error())
+		return args, argsFound, err
 	}
 
 	if *argsFound["version"] {

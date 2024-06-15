@@ -29,7 +29,6 @@ func main() {
 
 	args, argsFound, err := app.New()
 	if err != nil {
-		pterm.Error.Printf("%s\n", err.Error())
 		os.Exit(1)
 	}
 
@@ -77,11 +76,11 @@ func main() {
 		err = profileService.UpdateProfile(additionalArg)
 		break
 	default:
-		err = fmt.Errorf("Selected command is not valid, exiting.")
-		break
+		os.Exit(0)
 	}
 
 	if err != nil {
+		fmt.Println()
 		pterm.Error.Printf("%s\n", err.Error())
 		os.Exit(1)
 	}

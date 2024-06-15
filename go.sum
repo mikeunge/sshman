@@ -48,8 +48,8 @@ github.com/mattn/go-sqlite3 v1.14.22 h1:2gZY6PC6kBnID23Tichd1K+Z0oS6nE/XwU+Vz/5o
 github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
 github.com/melbahja/goph v1.4.0 h1:z0PgDbBFe66lRYl3v5dGb9aFgPy0kotuQ37QOwSQFqs=
 github.com/melbahja/goph v1.4.0/go.mod h1:uG+VfK2Dlhk+O32zFrRlc3kYKTlV6+BtvPWd/kK7U68=
-github.com/mikeunge/argparser v0.1.2-alpha h1:P6rEXdeEfJAb/VmbpVVaM0uSbiIwmBBOZB3WwFz8Ln4=
-github.com/mikeunge/argparser v0.1.2-alpha/go.mod h1:9SVybsSFkJ5ZZGTuYbXeLxXjltD+aqiJdkNB91O93Co=
+github.com/mikeunge/argparser v0.1.3-alpha h1:2mryXRftplRfoTSl8Insq/K8hkwnVxhBcYzQ3m/ocHw=
+github.com/mikeunge/argparser v0.1.3-alpha/go.mod h1:9SVybsSFkJ5ZZGTuYbXeLxXjltD+aqiJdkNB91O93Co=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/sftp v1.13.5 h1:a3RLUqkyjYRtBTZJZ1VRrKbN3zhuPLlUc3sphVz81go=
