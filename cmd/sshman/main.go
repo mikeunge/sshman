@@ -23,7 +23,7 @@ func main() {
 		Name:        "sshman",
 		Description: "SSH connection management tool.",
 		Author:      "@mikeunge",
-		Version:     "1.3.1",
+		Version:     "1.3.2",
 		Github:      "https://github.com/mikeunge/sshman",
 	}
 
@@ -50,7 +50,7 @@ func main() {
 		DecryptionRetries: cfg.DecryptionRetries,
 	}
 
-	nonValidCommands := []string{"encrypt", "id", "alias"}
+	nonValidCommands := []string{"no-encrypt", "id", "alias"}
 	command, err := determineNextStep(args, argsFound, nonValidCommands)
 	switch command {
 	case "list":
@@ -69,7 +69,11 @@ func main() {
 		err = profileService.ExportProfile(additionalArg)
 		break
 	case "new":
-		err = profileService.NewProfile(*argsFound["encrypt"])
+		encrypt := true
+		if *argsFound["no-encryption"] {
+			encrypt = false
+		}
+		err = profileService.NewProfile(encrypt)
 		break
 	case "update":
 		additionalArg := getAdditionalArg(args, argsFound)

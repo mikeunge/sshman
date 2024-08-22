@@ -27,7 +27,7 @@ func (app *App) New() (map[string]interface{}, map[string]*bool, error) {
 
 	args["connect"], argsFound["connect"] = parser.Flag("-c", "--connect", &argparser.Options{Required: false, Help: "Connect to a server with profile."})
 	args["new"], argsFound["new"] = parser.Flag("-n", "--new", &argparser.Options{Required: false, Help: "Create a new SSH profile."})
-	args["encrypt"], argsFound["encrypt"] = parser.Flag("", "--encrypt", &argparser.Options{Required: false, Help: "Encrypt the password/private key."})
+	args["no-encryption"], argsFound["no-encryption"] = parser.Flag("", "--no-encrypt", &argparser.Options{Required: false, Help: "Don't encrypt the profile."})
 	args["update"], argsFound["update"] = parser.Flag("-u", "--update", &argparser.Options{Required: false, Help: "Update an SSH profile."})
 	args["delete"], argsFound["delete"] = parser.Flag("-d", "--delete", &argparser.Options{Required: false, Help: "Delete SSH profiles."})
 	args["export"], argsFound["export"] = parser.Flag("-e", "--export", &argparser.Options{Required: false, Help: "Export profiles (for eg. sharing)."})
