@@ -202,6 +202,9 @@ func (s *ProfileService) UpdateProfile(p string) error {
 		if !helpers.IsValidIp(h) && !helpers.IsValidUrl(h) {
 			return h, fmt.Errorf("Make sure the host is a valid url or ip address.")
 		}
+		if h != profile.Host {
+			updatedEntries++
+		}
 		return h, nil
 	})
 	if err != nil {
