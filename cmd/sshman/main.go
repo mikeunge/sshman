@@ -23,7 +23,7 @@ func main() {
 		Name:        "sshman",
 		Description: "SSH connection management tool.",
 		Author:      "@mikeunge",
-		Version:     "1.3.2",
+		Version:     "1.3.3",
 		Github:      "https://github.com/mikeunge/sshman",
 	}
 
