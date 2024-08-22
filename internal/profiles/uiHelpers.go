@@ -80,7 +80,7 @@ func (s *ProfileService) selectProfile(t string, maxHeight int) (int64, error) {
 		return 0, err
 	}
 	if len(parsedProfileIds) == 0 {
-		return 0, fmt.Errorf("Could not parse id.")
+		return 0, fmt.Errorf("could not parse id")
 	}
 	return parsedProfileIds[0], nil
 }
