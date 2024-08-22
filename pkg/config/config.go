@@ -64,14 +64,12 @@ func (c *Config) validatePaths(objectNames []string, createIfNotExist bool) erro
 		)
 
 		objName := objectValueTypes.Field(i).Name
-		objValue = helpers.SanitizePath(objValue)
-
 		if !slices.Contains(objectNames, objName) {
 			continue
 		}
 
 		if objValue, ok = objectValues.Field(i).Interface().(string); !ok {
-			return fmt.Errorf("Could not transform %+v into string.", objectValues.Field(i).Interface())
+			return fmt.Errorf("could not transform %+v into string", objectValues.Field(i).Interface())
 		}
 
 		if helpers.PathExists(objValue) {

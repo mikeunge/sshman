@@ -11,7 +11,7 @@ import (
 
 func (s *SSHServer) SpawnShell(ctx context.Context) error {
 	if s.Client == nil {
-		return fmt.Errorf("Client is not initialized, exiting.")
+		return fmt.Errorf("client is not initialized, exiting")
 	}
 
 	session, err := s.Client.NewSession()
