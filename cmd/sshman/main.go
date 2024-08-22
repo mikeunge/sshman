@@ -23,7 +23,7 @@ func main() {
 		Name:        "sshman",
 		Description: "SSH connection management tool.",
 		Author:      "@mikeunge",
-		Version:     "1.3.0",
+		Version:     "1.4.0",
 		Github:      "https://github.com/mikeunge/sshman",
 	}
 
@@ -74,6 +74,20 @@ func main() {
 	case "update":
 		additionalArg := getAdditionalArg(args, argsFound)
 		err = profileService.UpdateProfile(additionalArg)
+		break
+	case "upload":
+		files := *args["upload"].(*[]string)
+		if len(files) < 2 {
+			err = fmt.Errorf("Upload needs 2 paths. sshman --upload <from> <to>")
+			break
+		}
+
+		from := files[0]
+		to := files[1]
+		err = profileService.UploadFile(from, to)
+		break
+	case "download":
+		err = profileService.ProfilesList()
 		break
 	default:
 		os.Exit(0)

@@ -32,6 +32,9 @@ func (app *App) New() (map[string]interface{}, map[string]*bool, error) {
 	args["delete"], argsFound["delete"] = parser.Flag("-d", "--delete", &argparser.Options{Required: false, Help: "Delete SSH profiles."})
 	args["export"], argsFound["export"] = parser.Flag("-e", "--export", &argparser.Options{Required: false, Help: "Export profiles (for eg. sharing)."})
 
+	args["upload"], argsFound["upload"] = parser.MultiString("", "--upload", &argparser.Options{Required: false, Help: "Upload a file to a remote host."})
+	args["download"], argsFound["download"] = parser.MultiString("", "--download", &argparser.Options{Required: false, Help: "Download a file from a remote host."})
+
 	args["alias"], argsFound["alias"] = parser.String("-a", "--alias", &argparser.Options{Required: false, Help: "Provide an alias to directly access."})
 	args["id"], argsFound["id"] = parser.Number("-i", "--id", &argparser.Options{Required: false, Help: "Provide an id for directly accessing."})
 
