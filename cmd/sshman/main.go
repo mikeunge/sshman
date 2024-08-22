@@ -66,9 +66,7 @@ func main() {
 		additionalArg := getAdditionalArg(args, argsFound)
 		err = profileService.ExportProfile(additionalArg)
 	case "new":
-		// FIXME: make sure to reverse the no-encrypt in the NewProfile function
-		// invert the no-encrypt flag because if it's found, the value is true
-		err = profileService.NewProfile(!*argsFound["no-encryption"])
+		err = profileService.NewProfile(*argsFound["no-encryption"])
 	case "update":
 		additionalArg := getAdditionalArg(args, argsFound)
 		err = profileService.UpdateProfile(additionalArg)

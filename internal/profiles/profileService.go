@@ -20,7 +20,7 @@ type ProfileService struct {
 	DecryptionRetries int
 }
 
-func (s *ProfileService) NewProfile(encrypt bool) error {
+func (s *ProfileService) NewProfile(skipEncryption bool) error {
 	var (
 		encKey  string
 		profile database.SSHProfile
@@ -29,7 +29,7 @@ func (s *ProfileService) NewProfile(encrypt bool) error {
 	pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.Bold)).Println("Creating new ssh profile")
 	writer := pterm.DefaultInteractiveTextInput.WithTextStyle(pterm.NewStyle(pterm.FgDefault))
 
-	if encrypt {
+	if !skipEncryption {
 		writer.DefaultText = "Encryption key"
 		if s.MaskInput {
 			writer.Mask = "*"
@@ -101,7 +101,7 @@ func (s *ProfileService) NewProfile(encrypt bool) error {
 			return err
 		}
 
-		if encrypt {
+		if !skipEncryption {
 			auth, err = helpers.EncryptString(auth, encKey)
 			if err != nil {
 				return err
@@ -119,7 +119,7 @@ func (s *ProfileService) NewProfile(encrypt bool) error {
 		if err != nil {
 			return err
 		}
-		if encrypt {
+		if !skipEncryption {
 			if encData, err := helpers.EncryptString(string(data), encKey); err != nil {
 				return err
 			} else {
