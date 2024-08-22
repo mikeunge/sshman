@@ -51,34 +51,27 @@ func main() {
 	}
 
 	nonValidCommands := []string{"no-encrypt", "id", "alias"}
-	command, err := determineNextStep(args, argsFound, nonValidCommands)
+	command, _ := determineNextStep(args, argsFound, nonValidCommands)
+
 	switch command {
 	case "list":
 		err = profileService.ProfilesList()
-		break
 	case "connect":
 		additionalArg := getAdditionalArg(args, argsFound)
-		err = profileService.ConnectToSHHWithProfile(additionalArg)
-		break
+		err = profileService.ConnectToServer(additionalArg)
 	case "delete":
 		additionalArg := getAdditionalArg(args, argsFound)
 		err = profileService.DeleteProfile(additionalArg)
-		break
 	case "export":
 		additionalArg := getAdditionalArg(args, argsFound)
 		err = profileService.ExportProfile(additionalArg)
-		break
 	case "new":
-		encrypt := true
-		if *argsFound["no-encryption"] {
-			encrypt = false
-		}
-		err = profileService.NewProfile(encrypt)
-		break
+		// FIXME: make sure to reverse the no-encrypt in the NewProfile function
+		// invert the no-encrypt flag because if it's found, the value is true
+		err = profileService.NewProfile(!*argsFound["no-encryption"])
 	case "update":
 		additionalArg := getAdditionalArg(args, argsFound)
 		err = profileService.UpdateProfile(additionalArg)
-		break
 	default:
 		os.Exit(0)
 	}
@@ -112,5 +105,5 @@ func determineNextStep(args map[string]interface{}, found map[string]*bool, filt
 			return key, nil
 		}
 	}
-	return "", fmt.Errorf("No parameters to parse.")
+	return "", fmt.Errorf("no parameters to parse")
 }
