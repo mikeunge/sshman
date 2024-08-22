@@ -12,6 +12,10 @@ type SSHServer struct {
 	Client           *goph.Client
 }
 
+func NewSSHServer(user string, host string) SSHServer {
+	return SSHServer{User: user, Host: host, SecureConnection: false}
+}
+
 func (s SSHServer) generateSSHClient(auth goph.Auth) (*goph.Client, error) {
 	if s.SecureConnection {
 		client, err := goph.New(s.User, s.Host, auth)

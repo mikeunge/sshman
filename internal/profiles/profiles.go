@@ -359,6 +359,11 @@ func (s *ProfileService) DeleteProfile(p string) error {
 	return nil
 }
 
+func (s *ProfileService) UploadFile(from string, to string) error {
+	fmt.Println(from, to)
+	return nil
+}
+
 func (s *ProfileService) ExportProfile(p string) error {
 	var profileIds []int64
 
