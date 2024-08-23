@@ -211,6 +211,5 @@ func DecryptString(data string, encKey string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	return fmt.Sprintf("%s", plaintext), nil
+	return string(plaintext), nil
 }

@@ -11,7 +11,7 @@ func (d *DB) CreateSSHProfile(profile SSHProfile) (int64, error) {
 	res, err := d.db.Exec("INSERT INTO SSH_Profile (alias, host, user, password, privateKey, type, encrypted) VALUES(?, ?, ?, ?, ?, ?, ?);", profile.Alias, profile.Host, profile.User, profile.Password, profile.PrivateKey, profile.AuthType, profile.Encrypted)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			err = fmt.Errorf("Profile with alias '%s' already exists", profile.Alias)
+			err = fmt.Errorf("profile with alias '%s' already exists", profile.Alias)
 		}
 		return 0, err
 	}
@@ -122,7 +122,7 @@ func (d *DB) DeleteSSHProfileById(id int64) error {
 	}
 
 	if updates, _ := res.RowsAffected(); updates == 0 {
-		return fmt.Errorf("Are you sure a profile with id '%d' exists?", id)
+		return fmt.Errorf("are you sure a profile with id '%d' exists?", id)
 	}
 	return nil
 }

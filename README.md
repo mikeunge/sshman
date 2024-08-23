@@ -32,7 +32,7 @@ Available Options:
 
   -c  --connect           Connect to a server with profile.
   -n  --new               Create a new SSH profile.
-      --encrypt           Encrypt the password / key file for more security. (only for new profiles)
+      --no-encrypt        Don't encrypt the profile.
   -u  --update            Update an SSH profile.
   -d  --delete            Delete SSH profiles.
   -e  --export            Export profiles (for eg. sharing). (WIP)

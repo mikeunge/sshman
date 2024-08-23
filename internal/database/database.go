@@ -38,7 +38,7 @@ func GetAuthTypeFromName(s string) (SSHProfileAuthType, error) {
 	} else if s == "Private Key" {
 		return AuthTypePrivateKey, nil
 	} else {
-		return 0, fmt.Errorf("%s is not a valid authentication type!", s)
+		return 0, fmt.Errorf("%s is not a valid authentication type", s)
 	}
 }
 

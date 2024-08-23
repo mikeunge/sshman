@@ -1,19 +1,13 @@
 package profiles
 
 import (
-	"context"
 	"encoding/csv"
 	"fmt"
 	"os"
-	"os/signal"
-	"strconv"
-	"strings"
-	"syscall"
 	"time"
 
 	"github.com/mikeunge/sshman/internal/database"
 	"github.com/mikeunge/sshman/pkg/helpers"
-	"github.com/mikeunge/sshman/pkg/ssh"
 
 	input_autocomplete "github.com/JoaoDanielRufino/go-input-autocomplete"
 	"github.com/pterm/pterm"
@@ -26,7 +20,7 @@ type ProfileService struct {
 	DecryptionRetries int
 }
 
-func (s *ProfileService) NewProfile(encrypt bool) error {
+func (s *ProfileService) NewProfile(skipEncryption bool) error {
 	var (
 		encKey  string
 		profile database.SSHProfile
@@ -35,7 +29,7 @@ func (s *ProfileService) NewProfile(encrypt bool) error {
 	pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.Bold)).Println("Creating new ssh profile")
 	writer := pterm.DefaultInteractiveTextInput.WithTextStyle(pterm.NewStyle(pterm.FgDefault))
 
-	if encrypt {
+	if !skipEncryption {
 		writer.DefaultText = "Encryption key"
 		if s.MaskInput {
 			writer.Mask = "*"
@@ -48,9 +42,9 @@ func (s *ProfileService) NewProfile(encrypt bool) error {
 
 	user, err := parseAndVerifyInput(writer.WithDefaultText("User"), func(t string) (string, error) {
 		if len(t) == 0 {
-			return t, fmt.Errorf("User cannot be empty.")
+			return t, fmt.Errorf("user cannot be empty")
 		} else if len(t) > 100 {
-			return t, fmt.Errorf("Your user is too big, 100 characters take it or leave it.")
+			return t, fmt.Errorf("your user is too big, 100 characters take it or leave it")
 		}
 		return t, nil
 	})
@@ -61,7 +55,7 @@ func (s *ProfileService) NewProfile(encrypt bool) error {
 
 	host, err := parseAndVerifyInput(writer.WithDefaultText("Host"), func(h string) (string, error) {
 		if !helpers.IsValidIp(h) && !helpers.IsValidUrl(h) {
-			return h, fmt.Errorf("Make sure the host is a valid url or ip address.")
+			return h, fmt.Errorf("make sure the host is a valid url or ip address")
 		}
 		return h, nil
 	})
@@ -72,9 +66,9 @@ func (s *ProfileService) NewProfile(encrypt bool) error {
 
 	alias, err := parseAndVerifyInput(writer.WithDefaultText("Alias"), func(t string) (string, error) {
 		if len(t) == 0 {
-			return t, fmt.Errorf("Alias cannot be empty.")
+			return t, fmt.Errorf("alias cannot be empty")
 		} else if len(t) > 500 {
-			return t, fmt.Errorf("Ok buddy, 500 characters is enough for an alias don't you think?")
+			return t, fmt.Errorf("ok buddy, 500 characters is enough for an alias don't you think?")
 		}
 		return t, nil
 	})
@@ -99,7 +93,7 @@ func (s *ProfileService) NewProfile(encrypt bool) error {
 		}
 		auth, err = parseAndVerifyInput(input, func(t string) (string, error) {
 			if len(t) == 0 {
-				return t, fmt.Errorf("Password cannot be empty.")
+				return t, fmt.Errorf("password cannot be empty")
 			}
 			return t, nil
 		})
@@ -107,7 +101,7 @@ func (s *ProfileService) NewProfile(encrypt bool) error {
 			return err
 		}
 
-		if encrypt {
+		if !skipEncryption {
 			auth, err = helpers.EncryptString(auth, encKey)
 			if err != nil {
 				return err
@@ -119,13 +113,13 @@ func (s *ProfileService) NewProfile(encrypt bool) error {
 			return err
 		}
 		if !helpers.FileExists(helpers.SanitizePath(auth)) {
-			return fmt.Errorf("File %s does not exist.", auth)
+			return fmt.Errorf("file %s does not exist", auth)
 		}
 		data, err := helpers.ReadFile(auth)
 		if err != nil {
 			return err
 		}
-		if encrypt {
+		if !skipEncryption {
 			if encData, err := helpers.EncryptString(string(data), encKey); err != nil {
 				return err
 			} else {
@@ -178,15 +172,15 @@ func (s *ProfileService) UpdateProfile(p string) error {
 	pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.Bold)).Printf("Updating: %d %s\n", profile.Id, profile.Alias)
 	writer := pterm.DefaultInteractiveTextInput.WithTextStyle(pterm.NewStyle(pterm.FgDefault))
 	if err = decryptProfile(&profile, s.MaskInput, s.DecryptionRetries); err != nil {
-		return fmt.Errorf("Encountered decryption error, %+v", err)
+		return fmt.Errorf("encountered decryption error %+v", err)
 	}
 
 	fmt.Println()
 	user, err := parseAndVerifyInput(writer.WithDefaultText("User").WithDefaultValue(profile.User), func(t string) (string, error) {
 		if len(t) == 0 {
-			return t, fmt.Errorf("User cannot be empty.")
+			return t, fmt.Errorf("user cannot be empty")
 		} else if len(t) > 100 {
-			return t, fmt.Errorf("Your user is too big, 100 characters take it or leave it.")
+			return t, fmt.Errorf("your user is too big, 100 characters take it or leave it")
 		}
 		if t != profile.User {
 			updatedEntries++
@@ -200,7 +194,7 @@ func (s *ProfileService) UpdateProfile(p string) error {
 
 	host, err := parseAndVerifyInput(writer.WithDefaultText("Host").WithDefaultValue(profile.Host), func(h string) (string, error) {
 		if !helpers.IsValidIp(h) && !helpers.IsValidUrl(h) {
-			return h, fmt.Errorf("Make sure the host is a valid url or ip address.")
+			return h, fmt.Errorf("make sure the host is a valid url or ip address")
 		}
 		if h != profile.Host {
 			updatedEntries++
@@ -214,9 +208,9 @@ func (s *ProfileService) UpdateProfile(p string) error {
 
 	alias, err := parseAndVerifyInput(writer.WithDefaultText("Alias").WithDefaultValue(profile.Alias), func(t string) (string, error) {
 		if len(t) == 0 {
-			return t, fmt.Errorf("Alias cannot be empty.")
+			return t, fmt.Errorf("alias cannot be empty")
 		} else if len(t) > 500 {
-			return t, fmt.Errorf("Ok buddy, 500 characters is enough for an alias don't you think?")
+			return t, fmt.Errorf("ok buddy, 500 characters is enough for an alias don't you think?")
 		}
 		if t != profile.Alias {
 			updatedEntries++
@@ -266,7 +260,7 @@ func (s *ProfileService) UpdateProfile(p string) error {
 		}
 		if len(auth) > 0 {
 			if !helpers.FileExists(helpers.SanitizePath(auth)) {
-				return fmt.Errorf("File %s does not exist.", auth)
+				return fmt.Errorf("file %s does not exist", auth)
 			}
 			data, err := helpers.ReadFile(auth)
 			if err != nil {
@@ -316,26 +310,12 @@ func (s *ProfileService) UpdateProfile(p string) error {
 	return nil
 }
 
-func (s *ProfileService) ProfilesList() error {
-	var profiles []database.SSHProfile
-	var err error
-
-	if profiles, err = s.DB.GetAllSSHProfiles(); err != nil || len(profiles) == 0 {
-		if len(profiles) == 0 {
-			return fmt.Errorf("No profiles found.")
-		}
-		return err
-	}
-	prettyPrintProfiles(profiles)
-	return nil
-}
-
 func (s *ProfileService) DeleteProfile(p string) error {
 	var profileIds []int64
 
 	if !profileIsProvided(p) {
 		if profileIds, _ = s.multiSelectProfiles("Select profiles to delete", 0); len(profileIds) == 0 {
-			return fmt.Errorf("No profiles selected, exiting.")
+			return fmt.Errorf("no profiles selected, exiting")
 		}
 	} else {
 		if id, err := parseProfileIdFromArg(p, s); err == nil {
@@ -353,7 +333,7 @@ func (s *ProfileService) DeleteProfile(p string) error {
 
 	for _, id := range profileIds {
 		if err := s.DB.DeleteSSHProfileById(id); err != nil {
-			return fmt.Errorf("Could not delete profile.\n%s", err.Error())
+			return fmt.Errorf("could not delete profile.\n%s", err.Error())
 		}
 	}
 
@@ -362,12 +342,42 @@ func (s *ProfileService) DeleteProfile(p string) error {
 	return nil
 }
 
+func (s *ProfileService) ConnectToServer(p string) error {
+	var (
+		profile   database.SSHProfile
+		profileId int64
+		err       error
+	)
+
+	if !profileIsProvided(p) {
+		if profileId, err = s.selectProfile("Select profile to connect to", 0); err != nil {
+			return err
+		}
+	} else {
+		if profileId, err = parseProfileIdFromArg(p, s); err != nil {
+			return err
+		}
+	}
+
+	if profile, err = s.DB.GetSSHProfileById(profileId); err != nil {
+		return err
+	}
+	if err = decryptProfile(&profile, s.MaskInput, s.DecryptionRetries); err != nil {
+		return fmt.Errorf("encountered decryption error %+v", err)
+	}
+
+	if err = s.connect(&profile); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *ProfileService) ExportProfile(p string) error {
 	var profileIds []int64
 
 	if !profileIsProvided(p) {
 		if profileIds, _ = s.multiSelectProfiles("Select profiles to export", 0); len(profileIds) == 0 {
-			return fmt.Errorf("No profiles selected, exiting.")
+			return fmt.Errorf("no profiles selected, exiting")
 		}
 	} else {
 		if id, err := parseProfileIdFromArg(p, s); err == nil {
@@ -382,10 +392,10 @@ func (s *ProfileService) ExportProfile(p string) error {
 		return err
 	}
 	if len(profiles) == 0 {
-		return fmt.Errorf("No profiles found for exporting.")
+		return fmt.Errorf("no profiles found for exporting")
 	}
 	if err = decryptProfiles(profiles, s.MaskInput, s.DecryptionRetries); err != nil {
-		return fmt.Errorf("Encountered decryption error, %+v", err)
+		return fmt.Errorf("encountered decryption error %+v", err)
 	}
 
 	csv := func(path string, header []string, profiles []database.SSHProfile) error {
@@ -410,10 +420,10 @@ func (s *ProfileService) ExportProfile(p string) error {
 		}
 
 		file, err := os.Create(path)
-		defer file.Close()
 		if err != nil {
 			return err
 		}
+		defer file.Close()
 		w := csv.NewWriter(file)
 		w.WriteAll(data)
 		w.Flush()
@@ -424,134 +434,22 @@ func (s *ProfileService) ExportProfile(p string) error {
 	header := []string{"Id", "Alias", "User", "Host/IP", "Auth Type", "Authentication", "Encrypted", "Created At"}
 	path := fmt.Sprintf("%d.csv", time.Now().Unix())
 	if err = csv(path, header, profiles); err != nil {
-		return fmt.Errorf("Could not export to csv, %s", err.Error())
+		return fmt.Errorf("could not export to csv, %s", err.Error())
 	}
 	pterm.Success.Printf("Export created: %s\n", path)
 	return nil
 }
 
-func (s *ProfileService) ConnectToSHHWithProfile(p string) error {
-	var (
-		profile   database.SSHProfile
-		profileId int64
-		err       error
-	)
-
-	if !profileIsProvided(p) {
-		if profileId, err = s.selectProfile("Select profile to connect to", 0); err != nil {
-			return err
-		}
-	} else {
-		if profileId, err = parseProfileIdFromArg(p, s); err != nil {
-			return err
-		}
-	}
-
-	if profile, err = s.DB.GetSSHProfileById(profileId); err != nil {
-		return err
-	}
-	if err = decryptProfile(&profile, s.MaskInput, s.DecryptionRetries); err != nil {
-		return fmt.Errorf("Encountered decryption error, %+v", err)
-	}
-
-	if err = s.connectToSSH(&profile); err != nil {
-		return err
-	}
-	return nil
-}
-
-func parseIdsFromSelectedProfiles(selectedProfiles []string) ([]int64, error) {
-	var ids []int64
-
-	for _, profile := range selectedProfiles {
-		id := strings.Split(profile, " ")[0]
-		if len(id) == 0 {
-			return ids, fmt.Errorf("Could not retrieve id from %s.", selectedProfiles)
-		}
-
-		iId, err := strconv.ParseInt(id, 10, 64)
-		if err != nil {
-			return ids, fmt.Errorf("Could not parse id from %s.", selectedProfiles)
-		}
-		ids = append(ids, iId)
-	}
-	return ids, nil
-}
-
-type validator func(string) (string, error)
-
-func parseAndVerifyInput(input *pterm.InteractiveTextInputPrinter, verify validator) (string, error) {
-	var t string
+func (s *ProfileService) ProfilesList() error {
+	var profiles []database.SSHProfile
 	var err error
 
-	if t, err = input.Show(); err != nil {
-		return t, err
-	}
-	return verify(t)
-}
-
-func profileIsProvided(p string) bool {
-	return len(p) > 0
-}
-
-func parseProfileIdFromArg(p string, s *ProfileService) (int64, error) {
-	var profileId int64
-	var err error
-
-	if profileId, err = strconv.ParseInt(p, 10, 64); err == nil {
-		return profileId, nil
-	}
-
-	profile, err := s.DB.GetSSHProfileByAlias(p)
-	if err != nil {
-		return 0, err
-	}
-	return profile.Id, nil
-}
-
-func (s *ProfileService) connectToSSH(profile *database.SSHProfile) error {
-	sessionStart := time.Now()
-	server := ssh.SSHServer{User: profile.User, Host: profile.Host, SecureConnection: false}
-
-	if profile.AuthType == database.AuthTypePrivateKey {
-		if err := server.ConnectSSHServerWithPrivateKey(profile.PrivateKey); err != nil {
-			return err
+	if profiles, err = s.DB.GetAllSSHProfiles(); err != nil || len(profiles) == 0 {
+		if len(profiles) == 0 {
+			return fmt.Errorf("no profiles found")
 		}
-	} else {
-		if err := server.ConnectSSHServerWithPassword(profile.Password); err != nil {
-			return err
-		}
+		return err
 	}
-
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
-	ctx, cancel := context.WithCancel(context.Background())
-
-	go func() {
-		if err := server.SpawnShell(ctx); err != nil {
-			pterm.Error.Printf("%s\n", err.Error())
-		}
-		cancel()
-	}()
-
-	select {
-	case <-sig:
-		cancel()
-	case <-ctx.Done():
-	}
-
-	diff := time.Now().Sub(sessionStart)
-	durationArr := strings.Split(time.Time{}.Add(diff).Format("15:04:05"), ":")
-
-	var duration string
-	if durationArr[0] != "00" {
-		duration = fmt.Sprintf("%sh %sm %ss", durationArr[0], durationArr[1], durationArr[2])
-	} else if durationArr[1] != "00" {
-		duration = fmt.Sprintf("%sm %ss", durationArr[1], durationArr[2])
-	} else {
-		duration = fmt.Sprintf("%ss", durationArr[2])
-	}
-
-	pterm.Info.Printf("Session closed. (total: %s)\n", duration)
+	prettyPrintProfiles(profiles)
 	return nil
 }
