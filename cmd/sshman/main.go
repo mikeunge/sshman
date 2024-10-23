@@ -50,27 +50,23 @@ func main() {
 		DecryptionRetries: cfg.DecryptionRetries,
 	}
 
-	nonValidCommands := []string{"encrypt", "id", "alias"}
-	command, err := determineNextStep(args, argsFound, nonValidCommands)
+	nonValidCommands := []string{"no-encrypt", "id", "alias"}
+	command, _ := determineNextStep(args, argsFound, nonValidCommands)
+
 	switch command {
 	case "list":
 		err = profileService.ProfilesList()
-		break
 	case "connect":
 		additionalArg := getAdditionalArg(args, argsFound)
-		err = profileService.ConnectToSHHWithProfile(additionalArg)
-		break
+		err = profileService.ConnectToServer(additionalArg)
 	case "delete":
 		additionalArg := getAdditionalArg(args, argsFound)
 		err = profileService.DeleteProfile(additionalArg)
-		break
 	case "export":
 		additionalArg := getAdditionalArg(args, argsFound)
 		err = profileService.ExportProfile(additionalArg)
-		break
 	case "new":
-		err = profileService.NewProfile(*argsFound["encrypt"])
-		break
+		err = profileService.NewProfile(*argsFound["no-encryption"])
 	case "update":
 		additionalArg := getAdditionalArg(args, argsFound)
 		err = profileService.UpdateProfile(additionalArg)
@@ -122,5 +118,5 @@ func determineNextStep(args map[string]interface{}, found map[string]*bool, filt
 			return key, nil
 		}
 	}
-	return "", fmt.Errorf("No parameters to parse.")
+	return "", fmt.Errorf("no parameters to parse")
 }
