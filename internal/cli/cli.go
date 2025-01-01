@@ -30,7 +30,8 @@ func (app *App) New() (map[string]interface{}, map[string]*bool, error) {
 	args["no-encryption"], argsFound["no-encryption"] = parser.Flag("", "--no-encrypt", &argparser.Options{Required: false, Help: "Don't encrypt the profile."})
 	args["update"], argsFound["update"] = parser.Flag("-u", "--update", &argparser.Options{Required: false, Help: "Update an SSH profile."})
 	args["delete"], argsFound["delete"] = parser.Flag("-d", "--delete", &argparser.Options{Required: false, Help: "Delete SSH profiles."})
-	args["export"], argsFound["export"] = parser.Flag("-e", "--export", &argparser.Options{Required: false, Help: "Export profiles (for eg. sharing)."})
+	args["export"], argsFound["export"] = parser.Flag("", "--export", &argparser.Options{Required: false, Help: "Export profiles."})
+	args["import"], argsFound["import"] = parser.String("", "--import", &argparser.Options{Required: false, Help: "Import profiles."})
 
 	args["alias"], argsFound["alias"] = parser.String("-a", "--alias", &argparser.Options{Required: false, Help: "Provide an alias to directly access."})
 	args["id"], argsFound["id"] = parser.Number("-i", "--id", &argparser.Options{Required: false, Help: "Provide an id for directly accessing."})
