@@ -415,7 +415,6 @@ func (s *ProfileService) ImportProfile(path string) error {
 			} else {
 				pkey = []byte(d[5])
 			}
-			encrypted := d[6] == "+"
 
 			// TODO: this is so whack I need to re-write this
 			profile := database.SSHProfile{
@@ -425,7 +424,7 @@ func (s *ProfileService) ImportProfile(path string) error {
 				Password:   password,
 				PrivateKey: pkey,
 				AuthType:   at,
-				Encrypted:  encrypted,
+				Encrypted:  d[6] == "+",
 				CTime:      date,
 			}
 			profiles = append(profiles, profile)
