@@ -3,7 +3,9 @@ package profiles
 import (
 	"encoding/csv"
 	"fmt"
+	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/mikeunge/sshman/internal/database"
@@ -377,18 +379,91 @@ func (s *ProfileService) ConnectToServer(p string) error {
 	return nil
 }
 
+func (s *ProfileService) ImportProfile(path string) error {
+	if !helpers.FileExists(path) {
+		return fmt.Errorf("file to import not found %s", path)
+	}
+
+	data, err := helpers.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	parseCsv := func(data string) ([]database.SSHProfile, error) {
+		var profiles []database.SSHProfile
+
+		reader := csv.NewReader(strings.NewReader(data))
+		records, err := reader.ReadAll()
+		if err != nil {
+			return profiles, err
+		}
+
+		for i, d := range records {
+			if i == 0 || len(d) < 8 {
+				continue
+			}
+
+			at, err := database.GetAuthTypeFromName(d[4])
+			if err != nil {
+				return profiles, err
+			}
+
+			date, err := time.Parse("02.01.2006", d[7])
+			if err != nil {
+				return profiles, err
+			}
+
+			var password string
+			var pkey []byte
+			if at == database.AuthTypePassword {
+				password = d[5]
+			} else {
+				pkey = []byte(d[5])
+			}
+
+			// TODO: this is so whack I need to re-write this
+			profile := database.SSHProfile{
+				Alias:      d[1],
+				Host:       d[2],
+				User:       d[3],
+				Password:   password,
+				PrivateKey: pkey,
+				AuthType:   at,
+				Encrypted:  d[6] == "+",
+				CTime:      date,
+			}
+			profiles = append(profiles, profile)
+		}
+		return profiles, nil
+	}
+
+	profiles, err := parseCsv(string(data))
+	if err != nil {
+		return err
+	}
+
+	for _, profile := range profiles {
+		_, err := s.DB.CreateSSHProfile(profile)
+		if err != nil {
+			log.Printf("Could not create profile %s, error: %s\n", profile, err.Error())
+		}
+	}
+
+	return nil
+}
+
 func (s *ProfileService) ExportProfile(p string) error {
 	var profileIds []int64
 
-	if !profileIsProvided(p) {
+	if profileIsProvided(p) && p != "decrypt" {
+		id, err := parseProfileIdFromArg(p, s)
+		if err != nil {
+			return err
+		}
+		profileIds = append(profileIds, id)
+	} else {
 		if profileIds, _ = s.multiSelectProfiles("Select profiles to export", 0); len(profileIds) == 0 {
 			return fmt.Errorf("no profiles selected, exiting")
-		}
-	} else {
-		if id, err := parseProfileIdFromArg(p, s); err == nil {
-			profileIds = append(profileIds, id)
-		} else {
-			return err
 		}
 	}
 
@@ -399,8 +474,11 @@ func (s *ProfileService) ExportProfile(p string) error {
 	if len(profiles) == 0 {
 		return fmt.Errorf("no profiles found for exporting")
 	}
-	if err = decryptProfiles(profiles, s.MaskInput, s.DecryptionRetries); err != nil {
-		return fmt.Errorf("encountered decryption error %+v", err)
+
+	if p == "decrypt" {
+		if err = decryptProfiles(profiles, s.MaskInput, s.DecryptionRetries); err != nil {
+			return fmt.Errorf("encountered decryption error %+v", err)
+		}
 	}
 
 	csv := func(path string, header []string, profiles []database.SSHProfile) error {
