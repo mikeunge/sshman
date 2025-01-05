@@ -450,16 +450,16 @@ func (s *ProfileService) ImportProfile(path string) error {
 func (s *ProfileService) ExportProfile(p string) error {
 	var profileIds []int64
 
-	if !profileIsProvided(p) {
-		if profileIds, _ = s.multiSelectProfiles("Select profiles to export", 0); len(profileIds) == 0 {
-			return fmt.Errorf("no profiles selected, exiting")
-		}
-	} else {
+	if profileIsProvided(p) && p != "decrypt" {
 		id, err := parseProfileIdFromArg(p, s)
 		if err != nil {
 			return err
 		}
 		profileIds = append(profileIds, id)
+	} else {
+		if profileIds, _ = s.multiSelectProfiles("Select profiles to export", 0); len(profileIds) == 0 {
+			return fmt.Errorf("no profiles selected, exiting")
+		}
 	}
 
 	profiles, err := s.DB.GetSSHProfilesById(profileIds)
@@ -469,8 +469,11 @@ func (s *ProfileService) ExportProfile(p string) error {
 	if len(profiles) == 0 {
 		return fmt.Errorf("no profiles found for exporting")
 	}
-	if err = decryptProfiles(profiles, s.MaskInput, s.DecryptionRetries); err != nil {
-		return fmt.Errorf("encountered decryption error %+v", err)
+
+	if p == "decrypt" {
+		if err = decryptProfiles(profiles, s.MaskInput, s.DecryptionRetries); err != nil {
+			return fmt.Errorf("encountered decryption error %+v", err)
+		}
 	}
 
 	csv := func(path string, header []string, profiles []database.SSHProfile) error {

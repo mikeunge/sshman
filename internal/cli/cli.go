@@ -35,6 +35,7 @@ func (app *App) New() (map[string]interface{}, map[string]*bool, error) {
 
 	args["alias"], argsFound["alias"] = parser.String("-a", "--alias", &argparser.Options{Required: false, Help: "Provide an alias to directly access."})
 	args["id"], argsFound["id"] = parser.Number("-i", "--id", &argparser.Options{Required: false, Help: "Provide an id for directly accessing."})
+	args["decrypt"], argsFound["decrypt"] = parser.Flag("", "--decrypt", &argparser.Options{Required: false, Help: "Decrypt the profile. (used for export)"})
 
 	err := parser.Parse()
 	if err != nil {
