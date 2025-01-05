@@ -127,7 +127,6 @@ func ReadFile(path string) ([]byte, error) {
 	if err != nil {
 		return []byte{}, fmt.Errorf("cannot read data from file %s, %+v", path, err)
 	}
-
 	return data, nil
 }
 

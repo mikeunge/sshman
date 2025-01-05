@@ -23,7 +23,7 @@ func main() {
 		Name:        "sshman",
 		Description: "SSH connection management tool.",
 		Author:      "@mikeunge",
-		Version:     "1.3.3",
+		Version:     "1.3.4",
 		Github:      "https://github.com/mikeunge/sshman",
 	}
 
@@ -65,6 +65,9 @@ func main() {
 	case "export":
 		additionalArg := getAdditionalArg(args, argsFound)
 		err = profileService.ExportProfile(additionalArg)
+	case "import":
+		additionalArg := args["import"].(*string)
+		err = profileService.ImportProfile(*additionalArg)
 	case "new":
 		err = profileService.NewProfile(*argsFound["no-encryption"])
 	case "update":
@@ -87,6 +90,8 @@ func getAdditionalArg(args map[string]interface{}, found map[string]*bool) strin
 		return fmt.Sprintf("%d", *args["id"].(*int))
 	} else if *found["alias"] {
 		return *args["alias"].(*string)
+	} else if *found["decrypt"] {
+		return "decrypt"
 	}
 	return ""
 }
