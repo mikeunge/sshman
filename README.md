@@ -25,20 +25,20 @@ When connecting with a private key, the private key gets generated and deleted a
 ```bash
 Available Options:
 
-  -h  --help              Print help information.
-  -v  --version           Prints the version.
-      --about             Prints information about the program.
-  -l  --list              List of all available SSH profiles.
+      --version      Prints the version.
+      --about        Print information about the app.
+    -l --list        Connect to a server with profile.
+    -c --connect     Connect to a server with profile.
+    -n --new         Create a new SSH profile.
+      --no-encrypt   Don't encrypt the profile.
+    -u --update      Update an SSH profile.
+    -d --delete      Delete SSH profiles.
+       --export      Export profiles.
+       --import      Import profiles.
+    -a --alias       Provide an alias to directly access.
+    -i --id          Provide an id for directly accessing.
+       --decrypt     Decrypt the profile. (used for export)
 
-  -c  --connect           Connect to a server with profile.
-  -n  --new               Create a new SSH profile.
-      --no-encrypt        Don't encrypt the profile.
-  -u  --update            Update an SSH profile.
-  -d  --delete            Delete SSH profiles.
-  -e  --export            Export profiles (for eg. sharing). (WIP)
-
-  -i  --id                Provide the id for directly using a profile.
-  -a  --alias             Provide the alias for directly using a profile.
 ```
 ## Special thanks
 
