@@ -344,6 +344,11 @@ func (s *ProfileService) DeleteProfile(p string) error {
 	return nil
 }
 
+func (s *ProfileService) UploadFile(from string, to string) error {
+	fmt.Println(from, to)
+	return nil
+}
+
 func (s *ProfileService) ConnectToServer(p string) error {
 	var (
 		profile   database.SSHProfile
