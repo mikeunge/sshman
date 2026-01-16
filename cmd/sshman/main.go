@@ -50,7 +50,7 @@ func main() {
 		DecryptionRetries: cfg.DecryptionRetries,
 	}
 
-	nonValidCommands := []string{"no-encrypt", "id", "alias"}
+	nonValidCommands := []string{"no-encrypt", "id", "alias", "from", "to"}
 	command, _ := determineNextStep(args, argsFound, nonValidCommands)
 
 	switch command {
@@ -73,6 +73,10 @@ func main() {
 	case "update":
 		additionalArg := getAdditionalArg(args, argsFound)
 		err = profileService.UpdateProfile(additionalArg)
+	case "scp":
+		fromArg := args["from"].(*string)
+		toArg := args["to"].(*string)
+		err = profileService.SCPFile(*fromArg, *toArg)
 	default:
 		os.Exit(0)
 	}

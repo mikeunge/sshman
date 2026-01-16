@@ -32,6 +32,9 @@ func (app *App) New() (map[string]interface{}, map[string]*bool, error) {
 	args["delete"], argsFound["delete"] = parser.Flag("-d", "--delete", &argparser.Options{Required: false, Help: "Delete SSH profiles."})
 	args["export"], argsFound["export"] = parser.Flag("", "--export", &argparser.Options{Required: false, Help: "Export profiles."})
 	args["import"], argsFound["import"] = parser.String("", "--import", &argparser.Options{Required: false, Help: "Import profiles."})
+	args["scp"], argsFound["scp"] = parser.Flag("", "--scp", &argparser.Options{Required: false, Help: "Copy files to/from remote server using profile."})
+	args["from"], argsFound["from"] = parser.String("", "--from", &argparser.Options{Required: false, Help: "Source file path for SCP operation (format: /local/path or profile_alias:/remote/path)."})
+	args["to"], argsFound["to"] = parser.String("", "--to", &argparser.Options{Required: false, Help: "Destination file path for SCP operation (format: /local/path or profile_alias:/remote/path)."})
 
 	args["alias"], argsFound["alias"] = parser.String("-a", "--alias", &argparser.Options{Required: false, Help: "Provide an alias to directly access."})
 	args["id"], argsFound["id"] = parser.Number("-i", "--id", &argparser.Options{Required: false, Help: "Provide an id for directly accessing."})

@@ -9,6 +9,8 @@ import (
 
 	"github.com/mikeunge/sshman/internal/database"
 	"github.com/mikeunge/sshman/pkg/helpers"
+	"github.com/mikeunge/sshman/pkg/scp"
+	"github.com/mikeunge/sshman/pkg/ssh"
 
 	input_autocomplete "github.com/JoaoDanielRufino/go-input-autocomplete"
 	"github.com/pterm/pterm"
@@ -414,3 +416,92 @@ func (s *ProfileService) ProfilesList() error {
 	prettyPrintProfiles(profiles)
 	return nil
 }
+
+func (s *ProfileService) SCPFile(from, to string) error {
+	var (
+		profile   database.SSHProfile
+		profileId int64
+		err       error
+	)
+
+	// Determine if we're uploading (local -> remote) or downloading (remote -> local)
+	fromIdentifier, fromPath, err := parseSCPPath(from)
+	if err != nil {
+		// If parsing fails, assume 'from' is a local path
+		fromIdentifier = ""
+		fromPath = from
+	}
+
+	toIdentifier, toPath, err := parseSCPPath(to)
+	if err != nil {
+		// If parsing fails, assume 'to' is a local path
+		toIdentifier = ""
+		toPath = to
+	}
+
+	// Determine which identifier to use for the profile
+	var profileIdentifier string
+	var localPath, remotePath string
+	isUpload := true // Assume upload by default
+
+	if fromIdentifier != "" {
+		// From is remote (download)
+		profileIdentifier = fromIdentifier
+		localPath = toPath
+		remotePath = fromPath
+		isUpload = false
+	} else if toIdentifier != "" {
+		// To is remote (upload)
+		profileIdentifier = toIdentifier
+		localPath = fromPath
+		remotePath = toPath
+		isUpload = true
+	} else {
+		return fmt.Errorf("either source or destination must reference a profile (format: profile_alias:path)")
+	}
+
+	// Resolve profile by identifier (alias or ID)
+	if profileId, err = parseProfileIdFromArg(profileIdentifier, s); err != nil {
+		return fmt.Errorf("could not resolve profile '%s': %v", profileIdentifier, err)
+	}
+
+	if profile, err = s.DB.GetSSHProfileById(profileId); err != nil {
+		return err
+	}
+	if err = decryptProfile(&profile, s.MaskInput, s.DecryptionRetries); err != nil {
+		return fmt.Errorf("encountered decryption error: %v", err)
+	}
+
+	// Establish SSH connection for SCP (without interactive shell)
+	server := ssh.SSHServer{User: profile.User, Host: profile.Host, SecureConnection: false}
+
+	if profile.AuthType == database.AuthTypePrivateKey {
+		if err = server.ConnectSSHServerWithPrivateKey(profile.PrivateKey); err != nil {
+			return fmt.Errorf("failed to connect to server: %v", err)
+		}
+	} else {
+		if err = server.ConnectSSHServerWithPassword(profile.Password); err != nil {
+			return fmt.Errorf("failed to connect to server: %v", err)
+		}
+	}
+
+	// Create SCP copier
+	scpCopier := scp.NewSCPCopier(&server)
+
+	// Perform the file transfer
+	if isUpload {
+		pterm.Info.Printf("Uploading %s to %s:%s\n", localPath, profile.Alias, remotePath)
+		err = scpCopier.CopyToRemote(localPath, remotePath)
+	} else {
+		pterm.Info.Printf("Downloading %s:%s to %s\n", profile.Alias, remotePath, localPath)
+		err = scpCopier.CopyFromRemote(remotePath, localPath)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	pterm.Success.Println("File transfer completed successfully!")
+	return nil
+}
+

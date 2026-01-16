@@ -110,3 +110,21 @@ func (s *ProfileService) connect(profile *database.SSHProfile) error {
 	pterm.Info.Printf("Session closed. (total: %s)\n", duration)
 	return nil
 }
+
+// parseSCPPath parses a path in the format "identifier:path" to extract identifier and path
+func parseSCPPath(path string) (identifier, filePath string, err error) {
+	// Look for the first colon to split identifier and path
+	parts := strings.SplitN(path, ":", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid path format, expected 'identifier:path'")
+	}
+
+	identifier = parts[0]
+	filePath = parts[1]
+
+	if identifier == "" || filePath == "" {
+		return "", "", fmt.Errorf("both identifier and path must be non-empty")
+	}
+
+	return identifier, filePath, nil
+}
