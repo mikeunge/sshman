@@ -100,14 +100,14 @@ func (d *DB) UpdateSSHProfileById(id int64, updatedProfile SSHProfile) error {
 
 	if updatedProfile.AuthType == AuthTypePrivateKey {
 		auth = string(updatedProfile.PrivateKey)
-		query = "UPDATE SSH_Profile SET alias=?, host=?, user=?, privateKey=?, mtime=? WHERE id=?;"
+		query = "UPDATE SSH_Profile SET alias=?, host=?, user=?, privateKey=?, type=?, encrypted=?, mtime=? WHERE id=?;"
 	} else {
 		auth = updatedProfile.Password
-		query = "UPDATE SSH_Profile SET alias=?, host=?, user=?, password=?, mtime=? WHERE id=?;"
+		query = "UPDATE SSH_Profile SET alias=?, host=?, user=?, password=?, type=?, encrypted=?, mtime=? WHERE id=?;"
 	}
 	mtime := time.Now().Format("2006-01-02 15:04:05")
 
-	if _, err := d.db.Exec(query, updatedProfile.Alias, updatedProfile.Host, updatedProfile.User, auth, mtime, id); err != nil {
+	if _, err := d.db.Exec(query, updatedProfile.Alias, updatedProfile.Host, updatedProfile.User, auth, updatedProfile.AuthType, updatedProfile.Encrypted, mtime, id); err != nil {
 		return err
 	}
 	return nil
