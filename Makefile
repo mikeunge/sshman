@@ -3,7 +3,7 @@ BUILD_PATH = ./bin
 SRC        = ./cmd/sshman/main.go
 TARGET     = sshman
 BINS       = $(BUILD_PATH)/$(TARGET)
-INST       = /usr/local/bin
+INST       = ~/.local/bin
 CONF_DEST  = ~/.config/sshman/
 CONF       = ./config/sshman.json
 
@@ -17,13 +17,14 @@ clean:
 build: clean
 	mkdir -p $(CONF_DEST)
 	mkdir -p $(BUILD_PATH)
-	$(CC) build -o $(BINS) $(SRC)
+	$(CC) build -tags sqlite_omit_load_extension -o $(BINS) $(SRC)
 
 run:
 	$(CC) run $(SRC) --about
 
 install: build 
-	sudo cp -v $(BINS) $(INST)
+	mkdir -p $(INST)
+	ditto $(BINS) $(INST)/$(TARGET)
 	cp -vn $(CONF) $(CONF_DEST)
 
 uninstall: clean

@@ -15,11 +15,17 @@ const (
     user TEXT NOT NULL,
     password TEXT,
     privateKey BLOB,
+    startupCommand TEXT,
     type TINYINT NOT NULL,
     encrypted BOOLEAN NOT NULL DEFAULT 0,
     ctime DATETIME DEFAULT CURRENT_TIMESTAMP,
     mtime DATETIME DEFAULT CURRENT_TIMESTAMP
   );`
+
+	QueryCheckColumnExists = `
+    SELECT COUNT(*)
+    FROM pragma_table_info('SSH_Profile')
+    WHERE name='startupCommand';`
 )
 
 func (d *DB) initDatabase() error {
@@ -33,5 +39,6 @@ func (d *DB) initDatabase() error {
 	if _, err := d.db.Exec(QueryCreateTable); err != nil {
 		return err
 	}
+
 	return nil
 }
