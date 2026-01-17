@@ -8,6 +8,7 @@ import (
 	"github.com/mikeunge/sshman/internal/database"
 	"github.com/mikeunge/sshman/internal/profiles"
 	"github.com/mikeunge/sshman/pkg/config"
+	"github.com/mikeunge/sshman/pkg/logger"
 
 	"github.com/pterm/pterm"
 )
@@ -23,7 +24,7 @@ func main() {
 		Name:        "sshman",
 		Description: "SSH connection management tool.",
 		Author:      "@mikeunge",
-		Version:     "1.3.4",
+		Version:     "1.4.0",
 		Github:      "https://github.com/mikeunge/sshman",
 	}
 
@@ -44,13 +45,25 @@ func main() {
 	}
 	defer db.Disconnect()
 
+	logger, err := logger.NewLogger(cfg)
+	if err != nil {
+		pterm.Warning.Printf("Could not initialize logger: %v\n", err)
+		logger = nil // We'll handle the nil logger case in the ProfileService
+	}
+	defer func() {
+		if logger != nil {
+			logger.Close()
+		}
+	}()
+
 	profileService := profiles.ProfileService{
 		DB:                db,
 		MaskInput:         cfg.MaskInput,
 		DecryptionRetries: cfg.DecryptionRetries,
+		Logger:            logger,
 	}
 
-	nonValidCommands := []string{"no-encrypt", "id", "alias"}
+	nonValidCommands := []string{"no-encrypt", "id", "alias", "from", "to"}
 	command, _ := determineNextStep(args, argsFound, nonValidCommands)
 
 	switch command {
@@ -73,6 +86,10 @@ func main() {
 	case "update":
 		additionalArg := getAdditionalArg(args, argsFound)
 		err = profileService.UpdateProfile(additionalArg)
+	case "scp":
+		fromArg := args["from"].(*string)
+		toArg := args["to"].(*string)
+		err = profileService.SCPFile(*fromArg, *toArg)
 	default:
 		os.Exit(0)
 	}

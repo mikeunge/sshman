@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mikeunge/sshman/pkg/helpers"
@@ -44,16 +45,17 @@ func GetAuthTypeFromName(s string) (SSHProfileAuthType, error) {
 
 // SSH profile model
 type SSHProfile struct {
-	Id         int64
-	Alias      string
-	Host       string
-	User       string
-	Password   string
-	PrivateKey []byte
-	AuthType   SSHProfileAuthType
-	Encrypted  bool
-	CTime      time.Time
-	MTime      time.Time
+	Id              int64
+	Alias           string
+	Host            string
+	User            string
+	Password        string
+	PrivateKey      []byte
+	StartupCommand  string
+	AuthType        SSHProfileAuthType
+	Encrypted       bool
+	CTime           time.Time
+	MTime           time.Time
 }
 
 func (d *DB) Connect() error {
@@ -74,6 +76,28 @@ func (d *DB) Connect() error {
 		}
 	}
 
+	// Run migrations to ensure schema is up to date
+	if err := d.runMigrations(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *DB) runMigrations() error {
+	// Try to add the startupCommand column if it doesn't exist (migration)
+	_, err := d.db.Exec("ALTER TABLE SSH_Profile ADD COLUMN startupCommand TEXT DEFAULT '';")
+	// If this fails because column already exists, that's fine
+	if err != nil {
+		// Check if it's a duplicate column error - these are acceptable
+		errStr := err.Error()
+		if !strings.Contains(errStr, "duplicate column name") &&
+		   !strings.Contains(errStr, "already exists") &&
+		   !strings.Contains(errStr, "column already exists") {
+			// If it's not a "column already exists" error, return it
+			return err
+		}
+	}
 	return nil
 }
 

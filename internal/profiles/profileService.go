@@ -4,12 +4,15 @@ import (
 	"encoding/csv"
 	"fmt"
 	"log"
-	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/mikeunge/sshman/internal/database"
 	"github.com/mikeunge/sshman/pkg/helpers"
+	"github.com/mikeunge/sshman/pkg/logger"
+	"github.com/mikeunge/sshman/pkg/scp"
+	"github.com/mikeunge/sshman/pkg/ssh"
 
 	input_autocomplete "github.com/JoaoDanielRufino/go-input-autocomplete"
 	"github.com/pterm/pterm"
@@ -20,9 +23,17 @@ type ProfileService struct {
 	KeyPath           string
 	MaskInput         bool
 	DecryptionRetries int
+	Logger          *logger.Logger
 }
 
 func (s *ProfileService) NewProfile(skipEncryption bool) error {
+	startTime := time.Now()
+	sessionID := fmt.Sprintf("new_profile_%d", startTime.Unix())
+
+	if s.Logger != nil {
+		s.Logger.Log(logger.INFO, "Starting new profile creation", "new", sessionID)
+	}
+
 	var (
 		encKey  string
 		profile database.SSHProfile
@@ -42,39 +53,29 @@ func (s *ProfileService) NewProfile(skipEncryption bool) error {
 		writer.Mask = ""
 	}
 
-	user, err := parseAndVerifyInput(writer.WithDefaultText("User"), func(t string) (string, error) {
-		if len(t) == 0 {
-			return t, fmt.Errorf("user cannot be empty")
-		} else if len(t) > 100 {
-			return t, fmt.Errorf("your user is too big, 100 characters take it or leave it")
-		}
-		return t, nil
-	})
+	user, err := parseAndVerifyInput(writer.WithDefaultText("User"), validateUser)
 	if err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to parse user input", "new", sessionID, err)
+		}
 		return err
 	}
 	profile.User = user
 
-	host, err := parseAndVerifyInput(writer.WithDefaultText("Host"), func(h string) (string, error) {
-		if !helpers.IsValidIp(h) && !helpers.IsValidUrl(h) {
-			return h, fmt.Errorf("make sure the host is a valid url or ip address")
-		}
-		return h, nil
-	})
+	host, err := parseAndVerifyInput(writer.WithDefaultText("Host"), validateHost)
 	if err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to parse host input", "new", sessionID, err)
+		}
 		return err
 	}
 	profile.Host = host
 
-	alias, err := parseAndVerifyInput(writer.WithDefaultText("Alias"), func(t string) (string, error) {
-		if len(t) == 0 {
-			return t, fmt.Errorf("alias cannot be empty")
-		} else if len(t) > 500 {
-			return t, fmt.Errorf("ok buddy, 500 characters is enough for an alias don't you think?")
-		}
-		return t, nil
-	})
+	alias, err := parseAndVerifyInput(writer.WithDefaultText("Alias"), validateAlias)
 	if err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to parse alias input", "new", sessionID, err)
+		}
 		return err
 	}
 	profile.Alias = alias
@@ -83,6 +84,9 @@ func (s *ProfileService) NewProfile(skipEncryption bool) error {
 	selectedOption, _ := pterm.DefaultInteractiveSelect.WithDefaultText("What kind of authentication do you need?").WithOptions(authTypeOptions).Show()
 	authType, err := database.GetAuthTypeFromName(selectedOption)
 	if err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to parse authentication type", "new", sessionID, err)
+		}
 		return err
 	}
 	profile.AuthType = authType
@@ -93,36 +97,50 @@ func (s *ProfileService) NewProfile(skipEncryption bool) error {
 		if s.MaskInput {
 			input.Mask = "*"
 		}
-		auth, err = parseAndVerifyInput(input, func(t string) (string, error) {
-			if len(t) == 0 {
-				return t, fmt.Errorf("password cannot be empty")
-			}
-			return t, nil
-		})
+		auth, err = parseAndVerifyInput(input, validatePassword)
 		if err != nil {
+			if s.Logger != nil {
+				s.Logger.LogError("Failed to parse password input", "new", sessionID, err)
+			}
 			return err
 		}
 
 		if !skipEncryption {
 			auth, err = helpers.EncryptString(auth, encKey)
 			if err != nil {
+				if s.Logger != nil {
+					s.Logger.LogError("Failed to encrypt password", "new", sessionID, err)
+				}
 				return err
 			}
 		}
 		profile.Password = auth
 	} else {
 		if auth, err = input_autocomplete.Read("Path to keyfile: "); err != nil {
+			if s.Logger != nil {
+				s.Logger.LogError("Failed to read keyfile path", "new", sessionID, err)
+			}
 			return err
 		}
 		if !helpers.FileExists(helpers.SanitizePath(auth)) {
-			return fmt.Errorf("file %s does not exist", auth)
+			err := fmt.Errorf("file %s does not exist", auth)
+			if s.Logger != nil {
+				s.Logger.LogError(err.Error(), "new", sessionID, err)
+			}
+			return err
 		}
 		data, err := helpers.ReadFile(auth)
 		if err != nil {
+			if s.Logger != nil {
+				s.Logger.LogError("Failed to read keyfile", "new", sessionID, err)
+			}
 			return err
 		}
 		if !skipEncryption {
 			if encData, err := helpers.EncryptString(string(data), encKey); err != nil {
+				if s.Logger != nil {
+					s.Logger.LogError("Failed to encrypt keyfile", "new", sessionID, err)
+				}
 				return err
 			} else {
 				data = []byte(encData)
@@ -131,182 +149,223 @@ func (s *ProfileService) NewProfile(skipEncryption bool) error {
 		profile.PrivateKey = data
 	}
 
+	// Ask for startup command
+	startupCmd, err := parseAndVerifyInput(writer.WithDefaultText("Startup Command (optional, press Enter to skip)"), func(cmd string) (string, error) {
+		// Allow empty commands
+		return cmd, nil
+	})
+	if err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to parse startup command", "new", sessionID, err)
+		}
+		return err
+	}
+	profile.StartupCommand = startupCmd
+
 	if create, _ := pterm.DefaultInteractiveConfirm.WithDefaultText("\nCreate new profile?").Show(); !create {
 		fmt.Println()
 		pterm.Info.Println("Profile creation aborted, exiting.")
+		if s.Logger != nil {
+			s.Logger.Log(logger.INFO, "Profile creation aborted by user", "new", sessionID)
+		}
 		return nil
 	}
 
 	id, err := s.DB.CreateSSHProfile(profile)
 	if err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to create profile in database", "new", sessionID, err)
+		}
 		return err
 	}
+
+	endTime := time.Now()
+	duration := endTime.Sub(startTime)
+
+	if s.Logger != nil {
+		s.Logger.LogWithDetails(logger.INFO, fmt.Sprintf("Successfully created profile: ID %d - %s", id, profile.Alias), "new", sessionID, duration.String(), startTime, endTime, nil)
+	}
+
 	fmt.Println()
 	pterm.Info.Printf("Successfully created profile: ID %d - %s\n", id, profile.Alias)
 	return nil
 }
 
 func (s *ProfileService) UpdateProfile(p string) error {
+	startTime := time.Now()
+	sessionID := fmt.Sprintf("update_%d", startTime.Unix())
+
+	if s.Logger != nil {
+		s.Logger.Log(logger.INFO, "Starting profile update", "update", sessionID)
+	}
+
 	var (
 		profile        database.SSHProfile
 		updatedProfile database.SSHProfile
 		updatedEntries uint8 = 0
 		profileId      int64
 		err            error
-		oriEncKey      string
 	)
 
 	if !profileIsProvided(p) {
 		if profileId, err = s.selectProfile("Select profile you want to update", 0); err != nil {
+			if s.Logger != nil {
+				s.Logger.LogError("Failed to select profile", "update", sessionID, err)
+			}
 			return err
 		}
 		fmt.Println()
 	} else {
 		if profileId, err = parseProfileIdFromArg(p, s); err != nil {
+			if s.Logger != nil {
+				s.Logger.LogError("Failed to parse profile ID", "update", sessionID, err)
+			}
 			return err
 		}
 	}
 
 	if profile, err = s.DB.GetSSHProfileById(profileId); err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to get profile by ID", "update", sessionID, err)
+		}
 		return err
 	}
 
+	if s.Logger != nil {
+		s.Logger.Log(logger.INFO, fmt.Sprintf("Updating profile: %s (%s@%s)", profile.Alias, profile.User, profile.Host), "update", sessionID)
+	}
+
+	// Store original encrypted values to preserve them when not updating
+	originalEncryptedPassword := profile.Password
+	originalEncryptedPrivateKey := profile.PrivateKey
+	originalEncryptedFlag := profile.Encrypted
+
 	pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.Bold)).Printf("Updating: %d %s\n", profile.Id, profile.Alias)
 	writer := pterm.DefaultInteractiveTextInput.WithTextStyle(pterm.NewStyle(pterm.FgDefault))
-	if err = decryptProfile(&profile, s.MaskInput, s.DecryptionRetries); err != nil {
-		return fmt.Errorf("encountered decryption error %+v", err)
+	if err = decryptProfile(&profile, s.MaskInput, s.DecryptionRetries, s.Logger, sessionID); err != nil {
+		errMsg := fmt.Sprintf("encountered decryption error %+v", err)
+		if s.Logger != nil {
+			s.Logger.LogError(errMsg, "update", sessionID, err)
+		}
+		return fmt.Errorf(errMsg)
 	}
 
 	fmt.Println()
 	user, err := parseAndVerifyInput(writer.WithDefaultText("User").WithDefaultValue(profile.User), func(t string) (string, error) {
-		if len(t) == 0 {
-			return t, fmt.Errorf("user cannot be empty")
-		} else if len(t) > 100 {
-			return t, fmt.Errorf("your user is too big, 100 characters take it or leave it")
+		result, err := validateUser(t)
+		if err != nil {
+			return result, err
 		}
 		if t != profile.User {
 			updatedEntries++
 		}
-		return t, nil
+		return result, nil
 	})
 	if err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to parse user input", "update", sessionID, err)
+		}
 		return err
 	}
 	updatedProfile.User = user
 
 	host, err := parseAndVerifyInput(writer.WithDefaultText("Host").WithDefaultValue(profile.Host), func(h string) (string, error) {
-		if !helpers.IsValidIp(h) && !helpers.IsValidUrl(h) {
-			return h, fmt.Errorf("make sure the host is a valid url or ip address")
+		result, err := validateHost(h)
+		if err != nil {
+			return result, err
 		}
 		if h != profile.Host {
 			updatedEntries++
 		}
-		return h, nil
+		return result, nil
 	})
 	if err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to parse host input", "update", sessionID, err)
+		}
 		return err
 	}
 	updatedProfile.Host = host
 
 	alias, err := parseAndVerifyInput(writer.WithDefaultText("Alias").WithDefaultValue(profile.Alias), func(t string) (string, error) {
-		if len(t) == 0 {
-			return t, fmt.Errorf("alias cannot be empty")
-		} else if len(t) > 500 {
-			return t, fmt.Errorf("ok buddy, 500 characters is enough for an alias don't you think?")
+		result, err := validateAlias(t)
+		if err != nil {
+			return result, err
 		}
 		if t != profile.Alias {
 			updatedEntries++
 		}
-		return t, nil
+		return result, nil
 	})
 	if err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to parse alias input", "update", sessionID, err)
+		}
 		return err
 	}
 	updatedProfile.Alias = alias
 	updatedProfile.AuthType = profile.AuthType
 
-	var auth string
-	if profile.AuthType == database.AuthTypePassword {
-		pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.Bold)).Printf("%s\n", "Press enter to keep the original password.")
-		input := writer.WithDefaultText("Password")
-		if s.MaskInput {
-			input.Mask = "*"
+	// Handle authentication update (password or private key)
+	if err := s.updateAuth(profile, &updatedProfile, &updatedEntries, originalEncryptedPassword, originalEncryptedPrivateKey, originalEncryptedFlag); err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to update authentication", "update", sessionID, err)
 		}
+		return err
+	}
 
-		auth, _ = input.Show()
-		if len(auth) == 0 {
-			updatedProfile.Password = profile.Password
-		} else {
-			if profile.Encrypted {
-				pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.Bold)).Printf("%s\n", "Press enter to keep the original encryption key.")
-				input := writer.WithDefaultText("(New) Encryption key")
-				if s.MaskInput {
-					input.Mask = "*"
-				}
-				encKey, _ := input.Show()
-				if len(encKey) == 0 {
-					encKey = oriEncKey
-				}
-				hash := helpers.CreateHash(encKey)
-				if auth, err = helpers.EncryptString(auth, hash); err != nil {
-					return err
-				}
-			}
-			updatedProfile.Password = auth
-			updatedEntries++
+	// Handle startup command update
+	writerWithDefault := writer.WithDefaultText("Startup Command (press Enter to keep current)").WithDefaultValue(profile.StartupCommand)
+	newStartupCmd, err := parseAndVerifyInput(writerWithDefault, func(cmd string) (string, error) {
+		// Allow empty commands
+		return cmd, nil
+	})
+	if err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to parse startup command", "update", sessionID, err)
 		}
+		return err
+	}
+	if newStartupCmd != profile.StartupCommand {
+		updatedProfile.StartupCommand = newStartupCmd
+		updatedEntries++
 	} else {
-		pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.Bold)).Printf("%s\n", "Press enter to keep the original keyfile.")
-		if auth, err = input_autocomplete.Read("Path to keyfile: "); err != nil {
-			return err
-		}
-		if len(auth) > 0 {
-			if !helpers.FileExists(helpers.SanitizePath(auth)) {
-				return fmt.Errorf("file %s does not exist", auth)
-			}
-			data, err := helpers.ReadFile(auth)
-			if err != nil {
-				return err
-			}
-			if profile.Encrypted {
-				pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.Bold)).Printf("%s\n", "Press enter to keep the original encryption key.")
-				input := writer.WithDefaultText("(New) Encryption key")
-				if s.MaskInput {
-					input.Mask = "*"
-				}
-				encKey, _ := input.Show()
-				if len(encKey) == 0 {
-					encKey = oriEncKey
-				}
-				hash := helpers.CreateHash(encKey)
-				if encData, err := helpers.EncryptString(string(data), hash); err != nil {
-					return err
-				} else {
-					data = []byte(encData)
-				}
-			}
-			updatedProfile.PrivateKey = data
-			updatedEntries++
-		} else {
-			updatedProfile.PrivateKey = profile.PrivateKey
-		}
+		// Keep the original startup command
+		updatedProfile.StartupCommand = profile.StartupCommand
 	}
 
 	if updatedEntries == 0 {
 		fmt.Println()
 		pterm.Info.Println("Nothing was updated, exiting.")
+		if s.Logger != nil {
+			s.Logger.Log(logger.INFO, "Profile update cancelled - no changes made", "update", sessionID)
+		}
 		return nil
 	}
 
 	if update, _ := pterm.DefaultInteractiveConfirm.WithDefaultText("\nDo you want to update the profile?").Show(); !update {
 		fmt.Println()
 		pterm.Info.Println("Profile update aborted, exiting.")
+		if s.Logger != nil {
+			s.Logger.Log(logger.INFO, "Profile update aborted by user", "update", sessionID)
+		}
 		return nil
 	}
 
 	if err := s.DB.UpdateSSHProfileById(profile.Id, updatedProfile); err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to update profile in database", "update", sessionID, err)
+		}
 		return err
 	}
+
+	endTime := time.Now()
+	duration := endTime.Sub(startTime)
+
+	if s.Logger != nil {
+		s.Logger.LogWithDetails(logger.INFO, fmt.Sprintf("Successfully updated profile: %s", profile.Alias), "update", sessionID, duration.String(), startTime, endTime, nil)
+	}
+
 	fmt.Println()
 	pterm.Info.Println("Successfully update profile")
 	return nil
@@ -345,6 +404,13 @@ func (s *ProfileService) DeleteProfile(p string) error {
 }
 
 func (s *ProfileService) ConnectToServer(p string) error {
+	startTime := time.Now()
+	sessionID := fmt.Sprintf("connect_%d", startTime.Unix())
+
+	if s.Logger != nil {
+		s.Logger.Log(logger.INFO, "Starting SSH connection", "connect", sessionID)
+	}
+
 	var (
 		profile   database.SSHProfile
 		profileId int64
@@ -353,23 +419,48 @@ func (s *ProfileService) ConnectToServer(p string) error {
 
 	if !profileIsProvided(p) {
 		if profileId, err = s.selectProfile("Select profile to connect to", 0); err != nil {
+			if s.Logger != nil {
+				s.Logger.LogError("Failed to select profile", "connect", sessionID, err)
+			}
 			return err
 		}
 	} else {
 		if profileId, err = parseProfileIdFromArg(p, s); err != nil {
+			if s.Logger != nil {
+				s.Logger.LogError("Failed to parse profile ID", "connect", sessionID, err)
+			}
 			return err
 		}
 	}
 
 	if profile, err = s.DB.GetSSHProfileById(profileId); err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to get profile by ID", "connect", sessionID, err)
+		}
 		return err
 	}
-	if err = decryptProfile(&profile, s.MaskInput, s.DecryptionRetries); err != nil {
-		return fmt.Errorf("encountered decryption error %+v", err)
+
+	if s.Logger != nil {
+		s.Logger.Log(logger.INFO, fmt.Sprintf("Connecting to profile: %s (%s@%s)", profile.Alias, profile.User, profile.Host), "connect", sessionID)
+	}
+
+	if err = decryptProfile(&profile, s.MaskInput, s.DecryptionRetries, s.Logger, sessionID); err != nil {
+		errMsg := fmt.Sprintf("encountered decryption error %+v", err)
+		if s.Logger != nil {
+			s.Logger.LogError(errMsg, "connect", sessionID, err)
+		}
+		return fmt.Errorf(errMsg)
 	}
 
 	if err = s.connect(&profile); err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to establish SSH connection", "connect", sessionID, err)
+		}
 		return err
+	}
+
+	if s.Logger != nil {
+		s.Logger.LogWithDetails(logger.INFO, "SSH connection established successfully", "connect", sessionID, "", startTime, time.Now(), nil)
 	}
 	return nil
 }
@@ -448,72 +539,77 @@ func (s *ProfileService) ImportProfile(path string) error {
 }
 
 func (s *ProfileService) ExportProfile(p string) error {
+	startTime := time.Now()
+	sessionID := fmt.Sprintf("export_%d", startTime.Unix())
+
+	if s.Logger != nil {
+		s.Logger.Log(logger.INFO, "Starting profile export", "export", sessionID)
+	}
+
 	var profileIds []int64
 
 	if profileIsProvided(p) && p != "decrypt" {
 		id, err := parseProfileIdFromArg(p, s)
 		if err != nil {
+			if s.Logger != nil {
+				s.Logger.LogError("Failed to parse profile ID for export", "export", sessionID, err)
+			}
 			return err
 		}
 		profileIds = append(profileIds, id)
 	} else {
 		if profileIds, _ = s.multiSelectProfiles("Select profiles to export", 0); len(profileIds) == 0 {
-			return fmt.Errorf("no profiles selected, exiting")
+			err := fmt.Errorf("no profiles selected, exiting")
+			if s.Logger != nil {
+				s.Logger.LogError("No profiles selected for export", "export", sessionID, err)
+			}
+			return err
 		}
 	}
 
 	profiles, err := s.DB.GetSSHProfilesById(profileIds)
 	if err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to get profiles by IDs", "export", sessionID, err)
+		}
 		return err
 	}
 	if len(profiles) == 0 {
-		return fmt.Errorf("no profiles found for exporting")
+		err := fmt.Errorf("no profiles found for exporting")
+		if s.Logger != nil {
+			s.Logger.LogError("No profiles found for export", "export", sessionID, err)
+		}
+		return err
 	}
 
 	if p == "decrypt" {
-		if err = decryptProfiles(profiles, s.MaskInput, s.DecryptionRetries); err != nil {
+		if s.Logger != nil {
+			s.Logger.Log(logger.INFO, fmt.Sprintf("Decrypting %d profiles for export", len(profiles)), "export", sessionID)
+		}
+		if err = decryptProfiles(profiles, s.MaskInput, s.DecryptionRetries, s.Logger, sessionID); err != nil {
+			if s.Logger != nil {
+				s.Logger.LogError("Failed to decrypt profiles for export", "export", sessionID, err)
+			}
 			return fmt.Errorf("encountered decryption error %+v", err)
 		}
 	}
 
-	csv := func(path string, header []string, profiles []database.SSHProfile) error {
-		var data [][]string
-		var dFormat = "02.01.2006"
-
-		data = append(data, header) // define the table header
-		for _, profile := range profiles {
-			var auth string
-			authType := database.GetNameFromAuthType(profile.AuthType)
-			if profile.AuthType == database.AuthTypePassword {
-				auth = profile.Password
-			} else {
-				auth = string(profile.PrivateKey[:])
-			}
-
-			encrypted := "-"
-			if profile.Encrypted {
-				encrypted = "+"
-			}
-			data = append(data, []string{fmt.Sprintf("%d", profile.Id), profile.Alias, profile.User, profile.Host, authType, auth, encrypted, profile.CTime.Format(dFormat)})
-		}
-
-		file, err := os.Create(path)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		w := csv.NewWriter(file)
-		w.WriteAll(data)
-		w.Flush()
-
-		return nil
-	}
-
 	header := []string{"Id", "Alias", "User", "Host/IP", "Auth Type", "Authentication", "Encrypted", "Created At"}
 	path := fmt.Sprintf("%d.csv", time.Now().Unix())
-	if err = csv(path, header, profiles); err != nil {
+	if err = exportProfilesToCSV(path, header, profiles); err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to export profiles to CSV", "export", sessionID, err)
+		}
 		return fmt.Errorf("could not export to csv, %s", err.Error())
 	}
+
+	endTime := time.Now()
+	duration := endTime.Sub(startTime)
+
+	if s.Logger != nil {
+		s.Logger.LogWithDetails(logger.INFO, fmt.Sprintf("Successfully exported %d profiles to %s", len(profiles), path), "export", sessionID, duration.String(), startTime, endTime, nil)
+	}
+
 	pterm.Success.Printf("Export created: %s\n", path)
 	return nil
 }
@@ -531,3 +627,168 @@ func (s *ProfileService) ProfilesList() error {
 	prettyPrintProfiles(profiles)
 	return nil
 }
+
+func (s *ProfileService) SCPFile(from, to string) error {
+	startTime := time.Now()
+	sessionID := fmt.Sprintf("scp_%d", startTime.Unix())
+
+	if s.Logger != nil {
+		s.Logger.Log(logger.INFO, "Starting SCP file transfer", "scp", sessionID)
+	}
+
+	var (
+		profile   database.SSHProfile
+		profileId int64
+		err       error
+	)
+
+	// Determine if we're uploading (local -> remote) or downloading (remote -> local)
+	fromIdentifier, fromPath, err := parseSCPPath(from)
+	if err != nil {
+		// If parsing fails, assume 'from' is a local path
+		fromIdentifier = ""
+		fromPath = from
+	}
+
+	toIdentifier, toPath, err := parseSCPPath(to)
+	if err != nil {
+		// If parsing fails, assume 'to' is a local path
+		toIdentifier = ""
+		toPath = to
+	}
+
+	// Determine which identifier to use for the profile
+	var profileIdentifier string
+	var localPath, remotePath string
+	isUpload := true // Assume upload by default
+
+	if fromIdentifier != "" {
+		// From is remote (download)
+		profileIdentifier = fromIdentifier
+		localPath = toPath
+		remotePath = fromPath
+		isUpload = false
+	} else if toIdentifier != "" {
+		// To is remote (upload)
+		profileIdentifier = toIdentifier
+		localPath = fromPath
+		remotePath = toPath
+		isUpload = true
+	} else {
+		errMsg := "either source or destination must reference a profile (format: profile_alias:path)"
+		if s.Logger != nil {
+			s.Logger.LogError("Invalid SCP path format", "scp", sessionID, fmt.Errorf(errMsg))
+		}
+		return fmt.Errorf(errMsg)
+	}
+
+	// Resolve profile by identifier (alias or ID)
+	if profileId, err = parseProfileIdFromArg(profileIdentifier, s); err != nil {
+		errMsg := fmt.Sprintf("could not resolve profile '%s': %v", profileIdentifier, err)
+		if s.Logger != nil {
+			s.Logger.LogError(errMsg, "scp", sessionID, err)
+		}
+		return fmt.Errorf(errMsg)
+	}
+
+	if profile, err = s.DB.GetSSHProfileById(profileId); err != nil {
+		if s.Logger != nil {
+			s.Logger.LogError("Failed to get profile by ID", "scp", sessionID, err)
+		}
+		return err
+	}
+
+	if s.Logger != nil {
+		s.Logger.Log(logger.INFO, fmt.Sprintf("Resolved profile: %s (%s@%s)", profile.Alias, profile.User, profile.Host), "scp", sessionID)
+	}
+
+	if err = decryptProfile(&profile, s.MaskInput, s.DecryptionRetries, s.Logger, sessionID); err != nil {
+		errMsg := fmt.Sprintf("encountered decryption error: %v", err)
+		if s.Logger != nil {
+			s.Logger.LogError(errMsg, "scp", sessionID, err)
+		}
+		return fmt.Errorf(errMsg)
+	}
+
+	// Establish SSH connection for SCP (without interactive shell)
+	server := ssh.SSHServer{
+		User: profile.User,
+		Host: profile.Host,
+		SecureConnection: false,
+		Logger: s.Logger,
+		SessionID: sessionID,
+	}
+
+	if profile.AuthType == database.AuthTypePrivateKey {
+		if err = server.ConnectSSHServerWithPrivateKey(profile.PrivateKey); err != nil {
+			errMsg := fmt.Sprintf("failed to connect to server: %v", err)
+			if s.Logger != nil {
+				s.Logger.LogError(errMsg, "scp", sessionID, err)
+			}
+			return fmt.Errorf(errMsg)
+		}
+	} else {
+		if err = server.ConnectSSHServerWithPassword(profile.Password); err != nil {
+			errMsg := fmt.Sprintf("failed to connect to server: %v", err)
+			if s.Logger != nil {
+				s.Logger.LogError(errMsg, "scp", sessionID, err)
+			}
+			return fmt.Errorf(errMsg)
+		}
+	}
+
+	if s.Logger != nil {
+		s.Logger.Log(logger.INFO, "SSH connection established", "scp", sessionID)
+	}
+
+	// Create SCP copier
+	scpCopier := scp.NewSCPCopier(&server)
+
+	// Handle automatic filename addition for uploads
+	if isUpload {
+		// Check if remotePath ends with a slash (indicating a directory)
+		if strings.HasSuffix(remotePath, "/") {
+			// Extract filename from localPath and append to remotePath
+			filename := filepath.Base(localPath)
+			remotePath = remotePath + filename
+			if s.Logger != nil {
+				s.Logger.Log(logger.INFO, fmt.Sprintf("Auto-appended filename to remote path: %s", remotePath), "scp", sessionID)
+			}
+		}
+	}
+
+	// Perform the file transfer
+	var transferErr error
+	if isUpload {
+		pterm.Info.Printf("Uploading %s to %s:%s\n", localPath, profile.Alias, remotePath)
+		if s.Logger != nil {
+			s.Logger.Log(logger.INFO, fmt.Sprintf("Starting upload: %s -> %s:%s", localPath, profile.Alias, remotePath), "scp", sessionID)
+		}
+		transferErr = scpCopier.CopyToRemote(localPath, remotePath)
+	} else {
+		pterm.Info.Printf("Downloading %s:%s to %s\n", profile.Alias, remotePath, localPath)
+		if s.Logger != nil {
+			s.Logger.Log(logger.INFO, fmt.Sprintf("Starting download: %s:%s -> %s", profile.Alias, remotePath, localPath), "scp", sessionID)
+		}
+		transferErr = scpCopier.CopyFromRemote(remotePath, localPath)
+	}
+
+	endTime := time.Now()
+	duration := endTime.Sub(startTime)
+
+	if transferErr != nil {
+		errMsg := fmt.Sprintf("file transfer failed: %v", transferErr)
+		if s.Logger != nil {
+			s.Logger.LogError(errMsg, "scp", sessionID, transferErr)
+		}
+		return transferErr
+	}
+
+	if s.Logger != nil {
+		s.Logger.LogWithDetails(logger.INFO, "File transfer completed successfully", "scp", sessionID, duration.String(), startTime, endTime, nil)
+	}
+
+	pterm.Success.Println("File transfer completed successfully!")
+	return nil
+}
+
